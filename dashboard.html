@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sentinel — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="dashboard-page">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-row">
+          <div class="sidebar-logo"><i class="fa-solid fa-shield-halved"></i></div>
+          <div class="sidebar-brand-text">
+            <h1>Sentinel Admin</h1>
+            <p>System Control</p>
+          </div>
+        </div>
+        <button class="btn-generate-qr" type="button">
+          <i class="fa-solid fa-plus"></i> Generate QR
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-link active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-calendar-check"></i> Attendance</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-users"></i> Employees</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-plane-departure"></i> Leave Requests</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-qrcode"></i> QR Security</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-file-shield"></i> Security Reports</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-gear"></i> Settings</a>
+      </nav>
+    </div>
+
+    <div class="sidebar-bottom">
+      <a href="#" class="nav-link"><i class="fa-solid fa-life-ring"></i> Support</a>
+      <a href="#" class="nav-link" id="signOutLink"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <div class="main-area">
+
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" placeholder="Search..." />
+        </div>
+        <div class="topbar-title">Sentinel Attendance</div>
+        <nav class="topbar-nav">
+          <a href="#" class="active">Overview</a>
+          <a href="#">Reports</a>
+          <a href="#">Logs</a>
+        </nav>
+      </div>
+
+      <div class="topbar-right">
+        <button class="icon-btn" type="button" aria-label="Notifications">
+          <i class="fa-solid fa-bell"></i>
+          <span class="dot"></span>
+        </button>
+
+        <button class="user-menu-trigger" id="userMenuTrigger" type="button">
+          <div class="avatar-circle" id="userInitials">--</div>
+        </button>
+
+        <div class="user-menu-dropdown" id="userMenuDropdown">
+          <div class="name" id="userName">Loading…</div>
+          <div class="email" id="userEmail">—</div>
+          <span class="role-badge" id="userRole">—</span>
+          <a href="#" class="signout" id="signOutLink2">
+            <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main class="dashboard-content">
+
+      <div class="page-header">
+        <div>
+          <h2>Real-time Overview</h2>
+          <p class="sub" id="welcomeLine">Live attendance tracking</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn-outline" type="button">Export Report</button>
+          <button class="btn-dark" type="button"><i class="fa-solid fa-arrows-rotate"></i> Sync Data</button>
+        </div>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="summary-cards">
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <span class="stat-label">Present Today</span>
+            <div class="stat-icon green"><i class="fa-solid fa-user-check"></i></div>
+          </div>
+          <div>
+            <div class="stat-value-row">
+              <span class="stat-value">4,120</span>
+              <span class="stat-delta up"><i class="fa-solid fa-arrow-up"></i> 2.4%</span>
+            </div>
+          </div>
+          <div class="stat-bar"><span style="width:85%"></span></div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <span class="stat-label">Absent</span>
+            <div class="stat-icon red"><i class="fa-solid fa-user-xmark"></i></div>
+          </div>
+          <div>
+            <div class="stat-value-row">
+              <span class="stat-value">184</span>
+              <span class="stat-delta down"><i class="fa-solid fa-arrow-down"></i> 0.5%</span>
+            </div>
+            <p class="stat-note">Includes unapproved leaves</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <span class="stat-label">On Leave</span>
+            <div class="stat-icon blue"><i class="fa-solid fa-plane"></i></div>
+          </div>
+          <div>
+            <div class="stat-value-row"><span class="stat-value">342</span></div>
+            <p class="stat-note">Approved leaves</p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <span class="stat-label">Late Arrivals</span>
+            <div class="stat-icon yellow"><i class="fa-solid fa-clock"></i></div>
+          </div>
+          <div>
+            <div class="stat-value-row">
+              <span class="stat-value">89</span>
+              <span class="stat-delta up"><i class="fa-solid fa-arrow-down"></i> 12%</span>
+            </div>
+            <p class="stat-note">Past grace period</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts row -->
+      <div class="charts-row">
+        <div class="card chart-card">
+          <div>
+            <div class="card-title">Total Attendance Trend</div>
+            <div class="card-subtitle">Last 7 Days</div>
+          </div>
+          <div class="chart-wrap">
+            <div class="trend-chart" id="trendChart"></div>
+          </div>
+        </div>
+
+        <div class="card list-card">
+          <div class="list-card-header">
+            <div class="card-title">Late Arrivals</div>
+            <a href="#" class="view-all-link">View All</a>
+          </div>
+          <div class="late-list">
+            <div class="late-item">
+              <div class="late-item-left">
+                <div class="avatar-initials">JD</div>
+                <div>
+                  <div class="late-item-name">John Doe</div>
+                  <div class="late-item-dept">Engineering</div>
+                </div>
+              </div>
+              <div class="late-item-right">
+                <div class="late-item-time">09:42 AM</div>
+                <div class="late-item-delta">+12m late</div>
+              </div>
+            </div>
+            <div class="late-item">
+              <div class="late-item-left">
+                <div class="avatar-initials">SS</div>
+                <div>
+                  <div class="late-item-name">Sarah Smith</div>
+                  <div class="late-item-dept">Marketing</div>
+                </div>
+              </div>
+              <div class="late-item-right">
+                <div class="late-item-time">09:55 AM</div>
+                <div class="late-item-delta">+25m late</div>
+              </div>
+            </div>
+            <div class="late-item">
+              <div class="late-item-left">
+                <div class="avatar-initials">RJ</div>
+                <div>
+                  <div class="late-item-name">Robert Jones</div>
+                  <div class="late-item-dept">Sales</div>
+                </div>
+              </div>
+              <div class="late-item-right">
+                <div class="late-item-time">10:15 AM</div>
+                <div class="late-item-delta">+45m late</div>
+              </div>
+            </div>
+            <div class="late-item">
+              <div class="late-item-left">
+                <div class="avatar-initials">ML</div>
+                <div>
+                  <div class="late-item-name">Mary Lee</div>
+                  <div class="late-item-dept">HR</div>
+                </div>
+              </div>
+              <div class="late-item-right">
+                <div class="late-item-time">10:30 AM</div>
+                <div class="late-item-delta">+1h late</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Department overview -->
+      <div class="card dept-card">
+        <div class="card-title">Department Overview</div>
+        <div class="dept-grid">
+          <div class="dept-col">
+            <div class="dept-row">
+              <span class="dept-name">Engineering</span>
+              <span class="dept-pct">92% Present</span>
+            </div>
+            <div class="dept-bar"><span style="width:92%; background:#0f172a;"></span></div>
+          </div>
+          <div class="dept-col">
+            <div class="dept-row">
+              <span class="dept-name">Sales</span>
+              <span class="dept-pct">88% Present</span>
+            </div>
+            <div class="dept-bar"><span style="width:88%; background:#2563eb;"></span></div>
+          </div>
+          <div class="dept-col">
+            <div class="dept-row">
+              <span class="dept-name">Marketing</span>
+              <span class="dept-pct">95% Present</span>
+            </div>
+            <div class="dept-bar"><span style="width:95%; background:#22c55e;"></span></div>
+          </div>
+          <div class="dept-col">
+            <div class="dept-row">
+              <span class="dept-name">Operations</span>
+              <span class="dept-pct">78% Present</span>
+            </div>
+            <div class="dept-bar"><span style="width:78%; background:#f97316;"></span></div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
