@@ -1,0 +1,262 @@
+<!DOCTYPE html><html lang="en" class="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&amp;family=Inter:wght@400&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#f7f9fb",
+                        "outline": "#76777d",
+                        "on-primary-fixed": "#131b2e",
+                        "inverse-primary": "#bec6e0",
+                        "success": "#10B981",
+                        "outline-variant": "#c6c6cd",
+                        "inverse-surface": "#2d3133",
+                        "error": "#EF4444",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#38485d",
+                        "tertiary-container": "#0b1c30",
+                        "on-tertiary-fixed": "#0b1c30",
+                        "warning": "#F59E0B",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e0e3e5",
+                        "surface-dim": "#d8dadc",
+                        "primary-fixed-dim": "#bec6e0",
+                        "secondary-container": "#316bf3",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-tint": "#565e74",
+                        "secondary-fixed": "#dbe1ff",
+                        "on-secondary-container": "#fefcff",
+                        "primary-container": "#131b2e",
+                        "background": "#f7f9fb",
+                        "secondary": "#0051d5",
+                        "on-error-container": "#93000a",
+                        "primary": "#000000",
+                        "primary-fixed": "#dae2fd",
+                        "on-tertiary-container": "#75859d",
+                        "border": "#E2E8F0",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-secondary-fixed": "#00174b",
+                        "tertiary": "#000000",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "on-primary-container": "#7c839b",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "tertiary-fixed-dim": "#b7c8e1",
+                        "on-background": "#191c1e",
+                        "on-secondary": "#ffffff",
+                        "surface-container-low": "#f2f4f6",
+                        "on-surface": "#191c1e",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-error": "#ffffff",
+                        "surface": "#FFFFFF",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "tertiary-fixed": "#d3e4fe",
+                        "surface-container": "#eceef0",
+                        "on-surface-variant": "#45464d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "xl": "40px",
+                        "sm": "8px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "32px",
+                        "gutter": "16px",
+                        "container-max": "1280px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "label-md": ["JetBrains Mono"],
+                        "label-sm": ["JetBrains Mono"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-md": ["Inter"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "label-md": ["13px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }]
+                    }
+                },
+            },
+        }
+    }catch(_e){}</script><meta charset="utf-8"></head><body class="bg-background text-on-background min-h-screen flex">
+<!-- SideNavBar (Hidden on Mobile) -->
+<nav class="hidden md:flex flex-col h-screen border-r border-outline-variant p-md bg-surface-bright text-on-primary-fixed font-body-md text-body-md w-64 fixed left-0 top-0 shadow-sm z-40">
+<div class="mb-lg flex flex-col items-center"><img class="w-16 h-16 rounded-full mb-sm object-cover bg-surface-variant border border-border shadow-sm" data-alt="Sentinel Admin Logo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDoPpxmYSYnA_Wd93Q7JLbpmQ__T-2y4kWvcrU8EiM2i9p4Fs22n-TQ7Mq1oH5q84h6utIDBOusr8hGBizX4v_9QZfi1AGFbtBfuzoyKlC6fYmDuoacivkaqLkWD9Zm_ETbMz7eBJhfQEGRV2rVb7UMl0ecBAbQixZpIA-t5PfQxrhMNPkTDO8VYiOdjIx9n_rHLIBtuBHwWqKJk-Hfotg7Gqf3g_axeMOAf22-XI-_gkXnLxtxlGkt"><h1 class="font-headline-sm text-headline-sm font-bold text-primary text-center">Sentinel Admin</h1><p class="text-on-surface-variant text-body-sm mt-xs">System Control</p></div>
+<ul class="flex flex-col gap-sm flex-grow"><li class=""><a class="flex items-center gap-sm px-md py-sm rounded-lg transition-transform active:scale-95 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant" href="#"><span class="material-symbols-outlined">dashboard</span><span class="">Dashboard</span></a></li><li class=""><a class="flex items-center gap-sm px-md py-sm rounded-lg transition-transform active:scale-95 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant" href="#"><span class="material-symbols-outlined">history</span><span class="">Attendance</span></a></li><li class=""><a class="flex items-center gap-sm px-md py-sm rounded-lg transition-transform active:scale-95 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant" href="#"><span class="material-symbols-outlined">groups</span><span class="">Employees</span></a></li><li class=""><a class="flex items-center gap-sm px-md py-sm rounded-lg transition-transform active:scale-95 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant" href="#"><span class="material-symbols-outlined">event_busy</span><span class="">Leave Requests</span></a></li><li class=""><a class="flex items-center gap-sm px-md py-sm rounded-lg transition-transform active:scale-95 bg-secondary-container text-on-secondary-container font-semibold" href="#"><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">qr_code_2</span><span class="">QR Security</span></a></li><li class=""><a class="flex items-center gap-sm px-md py-sm rounded-lg transition-transform active:scale-95 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant" href="#"><span class="material-symbols-outlined">verified_user</span><span class="">Security Reports</span></a></li><li class=""><a class="flex items-center gap-sm px-md py-sm rounded-lg transition-transform active:scale-95 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant" href="#"><span class="material-symbols-outlined">settings</span><span class="">Settings</span></a></li></ul>
+<div class="mt-auto flex flex-col gap-sm border-t border-outline-variant pt-md">
+<button class="w-full bg-primary text-on-primary font-label-md text-label-md py-sm rounded-lg hover:bg-opacity-90 transition-opacity">Regenerate Keys</button>
+<a class="flex items-center gap-sm px-md py-sm rounded-lg transition-transform active:scale-95 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined">support_agent</span>
+<span class="">Support</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm rounded-lg transition-transform active:scale-95 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="">Sign Out</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-64 p-margin-mobile md:p-margin-desktop w-full max-w-container-max mx-auto overflow-x-hidden">
+<!-- Header -->
+<div class="flex items-center justify-between mb-lg py-sm border-b border-border"><div class="flex items-center gap-md bg-surface-variant px-md py-sm rounded-lg w-96"><span class="material-symbols-outlined text-on-surface-variant">search</span><input type="text" placeholder="Search kiosks or logs..." class="bg-transparent border-none focus:ring-0 text-body-md w-full"></div><div class="flex items-center gap-lg"><button class="relative p-sm hover:bg-surface-variant rounded-full transition-colors"><span class="material-symbols-outlined">notifications</span><span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span></button><div class="flex items-center gap-sm border-l border-border pl-lg"><div class="text-right hidden md:block"><p class="text-body-md font-semibold text-on-surface">Admin User</p><p class="text-label-sm text-on-surface-variant">System Administrator</p></div><div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold">AU</div></div></div></div><header class="mb-xl border-b border-border pb-lg">
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">QR Security &amp; Kiosk Management</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-sm">Configure global settings and monitor physical check-in kiosks.</p>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-lg">
+<!-- Left Column (Settings & Kiosk Actions) -->
+<div class="lg:col-span-4 flex flex-col gap-lg">
+<!-- Section 1: Global QR Settings -->
+<section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
+<div class="flex items-center gap-sm mb-lg">
+<span class="material-symbols-outlined text-secondary">settings</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Global QR Settings</h3>
+</div>
+<div class="flex flex-col gap-md">
+<!-- Regeneration Interval -->
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface-variant flex justify-between">
+<span class="">Regeneration Interval</span>
+<span class="font-bold text-secondary">15s</span>
+</label>
+<input class="w-full accent-secondary" max="60" min="5" type="range" value="15">
+</div>
+<!-- Geolocation Enforcement -->
+<div class="flex items-center justify-between py-sm border-t border-border mt-sm">
+<div>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface">Geolocation Enforcement</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Require users to be within 50m of kiosk.</p>
+</div>
+<!-- Toggle switch -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+</label>
+</div>
+<!-- Cryptographic Signing -->
+<div class="flex items-center justify-between py-sm border-t border-border">
+<div>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface">Cryptographic Signing</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Sign QR data to prevent cloning.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Section 3: Kiosk Actions -->
+<section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-md">Kiosk Actions</h3>
+<div class="flex flex-col gap-sm">
+<button class="w-full flex items-center justify-center gap-sm bg-[#0F172A] text-on-primary font-label-md text-label-md py-sm rounded-lg hover:bg-opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                            Add New Kiosk
+                        </button>
+<button class="w-full flex items-center justify-center gap-sm border border-[#2563EB] text-[#2563EB] font-label-md text-label-md py-sm rounded-lg hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+                            Regenerate All Security Keys
+                        </button>
+</div>
+</section>
+<!-- Preview Card -->
+<section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)] flex flex-col items-center">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mb-md self-start">Active QR Template</h3>
+<div class="bg-surface-container-low p-md rounded-xl border border-border mb-md w-48 h-48 flex items-center justify-center relative overflow-hidden">
+<!-- Abstract representation of a QR code -->
+<div class="absolute inset-0 border-4 border-[#2563EB] opacity-20 rounded-lg scale-95 animate-pulse"></div>
+<img class="w-32 h-32 object-cover rounded shadow-sm" alt="Professional black and white QR code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&amp;data=TPL-889-SEC">
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant text-center">Template ID: TPL-889-SEC</p>
+</section>
+</div>
+<!-- Right Column (Active Kiosks Table) -->
+<div class="lg:col-span-8 flex flex-col gap-lg">
+<!-- Section 2: Active Kiosks -->
+<section class="bg-surface rounded-xl border border-border overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.02)] h-full flex flex-col">
+<div class="p-lg border-b border-border flex justify-between items-center bg-surface-bright">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-secondary">computer</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Active Kiosks</h3>
+</div>
+<span class="bg-surface-container-low text-on-surface-variant font-label-md px-sm py-xs rounded-full border border-border">3 Online</span>
+</div>
+<div class="overflow-x-auto flex-grow">
+<table class="w-full text-left font-body-md text-body-md">
+<thead class="bg-surface-bright text-on-surface-variant font-label-md text-label-md border-b border-border">
+<tr>
+<th class="px-lg py-md font-medium">Location Name</th>
+<th class="px-lg py-md font-medium">Device ID</th>
+<th class="px-lg py-md font-medium">Status</th>
+<th class="px-lg py-md font-medium">Last Sync Time</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border">
+<!-- Row 1 -->
+<tr class="hover:bg-[#F8FAFC] transition-colors">
+<td class="px-lg py-md text-on-surface font-medium">Main Entrance - Tower A</td>
+<td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">KSK-001-A</td>
+<td class="px-lg py-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-success bg-opacity-10 text-success font-label-md text-[12px]">
+<span class="w-2 h-2 rounded-full bg-success"></span>
+                                            Online
+                                        </span>
+</td>
+<td class="px-lg py-md text-on-surface-variant">Just now</td>
+</tr>
+<!-- Row 2 (Zebra stripe alternative style for demo, using simple hover for cleaner look as per guidelines but requested zebra in text, will use alternating light bg) -->
+<tr class="bg-[#F8FAFC] hover:bg-surface-variant transition-colors">
+<td class="px-lg py-md text-on-surface font-medium">East Wing Entry</td>
+<td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">KSK-042-E</td>
+<td class="px-lg py-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-success bg-opacity-10 text-success font-label-md text-[12px]">
+<span class="w-2 h-2 rounded-full bg-success"></span>
+                                            Online
+                                        </span>
+</td>
+<td class="px-lg py-md text-on-surface-variant">2 mins ago</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-[#F8FAFC] transition-colors">
+<td class="px-lg py-md text-on-surface font-medium">Staff Cafeteria</td>
+<td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">KSK-118-C</td>
+<td class="px-lg py-md">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-surface-variant text-on-surface-variant font-label-md text-[12px]">
+<span class="w-2 h-2 rounded-full bg-outline"></span>
+                                            Offline
+                                        </span>
+</td>
+<td class="px-lg py-md text-on-surface-variant">14 hours ago</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</div>
+</main>
+
+
+
+</body></html>
