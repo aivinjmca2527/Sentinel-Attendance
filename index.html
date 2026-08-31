@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sentinel — Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="login-page">
+
+  <div class="login-bg-grid"></div>
+  <div class="login-bg-gradient"></div>
+
+  <div class="login-container">
+
+    <div class="brand-header">
+      <div class="brand-icon"><i class="fa-solid fa-shield-halved"></i></div>
+      <h1>Sentinel</h1>
+      <p class="subtitle">Enterprise Attendance Security</p>
+    </div>
+
+    <div class="login-card">
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="email">Corporate Email</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-envelope input-icon"></i>
+            <input type="email" id="email" placeholder="user@company.com" required autocomplete="username" />
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-row">
+            <label for="password">Password</label>
+            <a href="#" class="link-sm">Forgot Password?</a>
+          </div>
+          <div class="input-wrap">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password" />
+            <button type="button" id="togglePw" class="input-btn" aria-label="Show password">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="remember-row">
+          <input type="checkbox" id="remember" />
+          <label for="remember">Remember me</label>
+        </div>
+
+        <div class="admin-note">
+          <i class="fa-solid fa-circle-info"></i>
+          <p>Managers and Admin roles will be required to provide a TOTP code on the next step.</p>
+        </div>
+
+        <p id="errorMsg" class="error-msg" style="display:none;"></p>
+
+        <button type="submit" class="submit-btn">Sign In to Portal</button>
+      </form>
+
+    </div>
+
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <span>•</span>
+      <a href="#">IT Support</a>
+    </div>
+
+  </div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

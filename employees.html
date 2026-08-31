@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sentinel — Employee Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="dashboard-page">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="brand-icon-sm"><i class="fa-solid fa-shield-halved"></i></div>
+      <span>Sentinel</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item">
+        <i class="fa-solid fa-chart-line"></i><span>Overview</span>
+      </a>
+      <a href="employees.html" class="nav-item active" id="navEmployees">
+        <i class="fa-solid fa-users"></i><span>Employees</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-calendar-check"></i><span>Attendance</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-file-chart-column"></i><span>Reports</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="fa-solid fa-gear"></i><span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="#" class="nav-item" id="signOutLink">
+        <i class="fa-solid fa-right-from-bracket"></i><span>Sign Out</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ── Main area ─────────────────────────────────────────────────────────── -->
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">Employee Management</div>
+      </div>
+      <div class="topbar-right">
+        <button class="user-menu-trigger" id="userMenuTrigger" type="button">
+          <div class="avatar-circle" id="userInitials">--</div>
+        </button>
+        <div class="user-menu-dropdown" id="userMenuDropdown">
+          <div class="name" id="userName">Loading…</div>
+          <div class="email" id="userEmail">—</div>
+          <span class="role-badge" id="userRole">—</span>
+          <a href="#" class="signout" id="signOutLink2">
+            <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main class="dashboard-content">
+
+      <div class="page-header">
+        <div>
+          <h2>Employees</h2>
+          <p class="sub">Manage your workforce records</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn-outline" type="button" id="exportBtn">
+            <i class="fa-solid fa-file-arrow-down"></i> Export CSV
+          </button>
+          <button class="btn-dark" type="button" id="addEmpBtn">
+            <i class="fa-solid fa-plus"></i> Add Employee
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem;">
+        <div class="emp-filters">
+          <div class="input-wrap" style="flex:1;max-width:340px;">
+            <i class="fa-solid fa-magnifying-glass input-icon"></i>
+            <input type="text" id="searchInput" placeholder="Search name, email or ID…" />
+          </div>
+          <select id="statusFilter" class="filter-select">
+            <option value="">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="On Leave">On Leave</option>
+          </select>
+          <select id="deptFilter" class="filter-select">
+            <option value="">All Departments</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card" style="overflow:hidden;">
+        <div class="table-wrapper">
+          <table class="emp-table" id="empTable">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>ID</th>
+                <th>Department</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="empTableBody">
+              <tr><td colspan="7" class="table-empty">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Loading employees…
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span id="empCount">— employees</span>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ── Add/Edit Modal ─────────────────────────────────────────────────────── -->
+  <div class="modal-backdrop" id="modalBackdrop" style="display:none;">
+    <div class="modal" id="empModal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add Employee</h3>
+        <button class="modal-close" id="modalClose" type="button">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <form id="empForm" novalidate>
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="field">
+              <label for="mEmpId">Employee ID *</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-id-badge input-icon"></i>
+                <input type="text" id="mEmpId" placeholder="EMP009" required />
+              </div>
+            </div>
+            <div class="field">
+              <label for="mName">Full Name *</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-user input-icon"></i>
+                <input type="text" id="mName" placeholder="Jane Doe" required />
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="mEmail">Email *</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-envelope input-icon"></i>
+                <input type="email" id="mEmail" placeholder="jane@sentinel.com" required />
+              </div>
+            </div>
+            <div class="field">
+              <label for="mPhone">Phone</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-phone input-icon"></i>
+                <input type="text" id="mPhone" placeholder="+1-555-0000" />
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="mRole">Role</label>
+              <select id="mRole" class="filter-select" style="width:100%;">
+                <option value="Employee">Employee</option>
+                <option value="Manager">Manager</option>
+                <option value="Admin">Admin</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="mDept">Department</label>
+              <select id="mDept" class="filter-select" style="width:100%;">
+                <option value="">— Select —</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="mStatus">Status</label>
+              <select id="mStatus" class="filter-select" style="width:100%;">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="On Leave">On Leave</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="mJoinDate">Join Date</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-calendar input-icon"></i>
+                <input type="date" id="mJoinDate" />
+              </div>
+            </div>
+          </div>
+          <p id="modalError" class="error-msg" style="display:none;"></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-outline" id="modalCancel">Cancel</button>
+          <button type="submit" class="btn-dark" id="modalSave">Save Employee</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Delete Confirm Modal ───────────────────────────────────────────────── -->
+  <div class="modal-backdrop" id="deleteBackdrop" style="display:none;">
+    <div class="modal" style="max-width:400px;">
+      <div class="modal-header">
+        <h3>Delete Employee</h3>
+        <button class="modal-close" id="deleteClose" type="button">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete <strong id="deleteEmpName"></strong>? This action cannot be undone.</p>
+        <p id="deleteError" class="error-msg" style="display:none;"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-outline" id="deleteCancelBtn">Cancel</button>
+        <button type="button" class="btn-danger" id="deleteConfirmBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+<script src="js/app.js"></script>
+<script src="js/employees.js"></script>
+</body>
+</html>

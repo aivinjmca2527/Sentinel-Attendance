@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sentinel — Two-Factor Verification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="login-page">
+
+  <div class="login-bg-grid"></div>
+  <div class="login-bg-gradient"></div>
+
+  <div class="login-container" style="max-width:420px;">
+
+    <div class="brand-header">
+      <div class="brand-icon"><i class="fa-solid fa-shield-halved"></i></div>
+      <h1>Sentinel</h1>
+      <p class="subtitle">Two-Factor Verification</p>
+    </div>
+
+    <div class="login-card">
+
+      <div class="totp-intro" style="text-align:center;margin-bottom:1.5rem;">
+        <i class="fa-solid fa-mobile-screen-button totp-big-icon"></i>
+        <h2 style="margin:.75rem 0 .5rem;">Enter your code</h2>
+        <p style="color:#64748b;font-size:.9rem;">Open your authenticator app and enter the 6-digit code for <strong>Sentinel</strong>.</p>
+      </div>
+
+      <!-- OTP digit boxes -->
+      <div class="otp-boxes" id="otpBoxes">
+        <input type="text" class="otp-box" maxlength="1" inputmode="numeric" id="otp0" />
+        <input type="text" class="otp-box" maxlength="1" inputmode="numeric" id="otp1" />
+        <input type="text" class="otp-box" maxlength="1" inputmode="numeric" id="otp2" />
+        <span class="otp-sep">—</span>
+        <input type="text" class="otp-box" maxlength="1" inputmode="numeric" id="otp3" />
+        <input type="text" class="otp-box" maxlength="1" inputmode="numeric" id="otp4" />
+        <input type="text" class="otp-box" maxlength="1" inputmode="numeric" id="otp5" />
+      </div>
+
+      <p id="totpError" class="error-msg" style="display:none;margin-top:.75rem;"></p>
+
+      <button type="button" id="verifyBtn" class="submit-btn" style="margin-top:1.25rem;">
+        Verify Identity
+      </button>
+
+      <div style="text-align:center;margin-top:1rem;">
+        <a href="index.html" class="link-sm">← Sign in with a different account</a>
+      </div>
+
+    </div>
+
+  </div>
+
+<script src="js/app.js"></script>
+<script src="js/totp-verify.js"></script>
+</body>
+</html>
