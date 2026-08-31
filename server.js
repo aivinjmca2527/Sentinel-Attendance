@@ -23,8 +23,8 @@ app.use(express.static(path.join(__dirname, 'Templates')));
 // app.use('/api/employees', require('./modules/employees/routes'));  // Nandana
 // app.use('/api/attendance', require('./modules/attendance/routes')); // Aivin
 // app.use('/api/qr', require('./modules/qr/routes'));                // Aivin
-// app.use('/api/dashboard', require('./modules/dashboard/routes'));  // Amina
-// app.use('/api/reports', require('./modules/reports/routes'));      // Amina
+app.use('/api/dashboard', require('./modules/dashboard/routes'));  // Amina
+app.use('/api/reports', require('./modules/reports/routes'));      // Amina
 // app.use('/api/leave', require('./modules/leave/routes'));          // Melbin
 
 app.listen(PORT, () => {

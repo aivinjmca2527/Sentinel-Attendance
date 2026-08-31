@@ -165,16 +165,34 @@
 <h2 class="font-headline-lg text-headline-lg text-primary">Security Reports &amp; Audit Logs</h2>
 <p class="text-on-surface-variant font-body-md">Monitoring real-time security integrity and access compliance across all terminals.</p>
 </div>
-<div class="flex items-center gap-sm">
-<div class="flex items-center bg-surface border border-outline-variant rounded-lg px-md py-sm">
+<div class="flex items-center gap-sm relative">
+<div id="date-range-picker-btn" class="flex items-center bg-surface border border-outline-variant rounded-lg px-md py-sm cursor-pointer hover:bg-surface-container-low transition-colors">
 <span class="material-symbols-outlined text-outline mr-sm">calendar_today</span>
-<span class="text-body-md font-medium">Oct 12, 2023 - Oct 19, 2023</span>
-<span class="material-symbols-outlined text-outline ml-md cursor-pointer">expand_more</span>
+<span id="date-range-label" class="text-body-md font-medium">Last 7 Days</span>
+<span class="material-symbols-outlined text-outline ml-md">expand_more</span>
 </div>
-<button class="bg-primary text-on-primary px-lg py-sm rounded-lg font-body-md flex items-center gap-sm hover:opacity-90 transition-all shadow-sm">
+<button id="btn-export-report" class="bg-primary text-on-primary px-lg py-sm rounded-lg font-body-md flex items-center gap-sm hover:opacity-90 transition-all shadow-sm cursor-pointer">
 <span class="material-symbols-outlined text-[18px]">download</span>
                         Export Report
                     </button>
+<!-- Dropdown Modal / Picker for Date Range -->
+<div id="date-range-dropdown" class="hidden absolute top-full left-0 mt-2 w-72 bg-surface border border-outline-variant rounded-xl shadow-xl p-md z-50 flex flex-col gap-sm">
+<div class="font-headline-sm text-sm font-bold text-primary mb-1">Select Report Date Range</div>
+<div class="flex flex-col gap-1">
+<button data-range="today" class="date-preset-btn text-left px-3 py-1.5 rounded-lg text-sm hover:bg-surface-container-low text-on-surface-variant font-medium">Today</button>
+<button data-range="7d" class="date-preset-btn text-left px-3 py-1.5 rounded-lg text-sm bg-secondary-container bg-opacity-10 text-secondary font-semibold">Last 7 Days</button>
+<button data-range="14d" class="date-preset-btn text-left px-3 py-1.5 rounded-lg text-sm hover:bg-surface-container-low text-on-surface-variant font-medium">Last 14 Days</button>
+<button data-range="30d" class="date-preset-btn text-left px-3 py-1.5 rounded-lg text-sm hover:bg-surface-container-low text-on-surface-variant font-medium">Last 30 Days</button>
+</div>
+<div class="border-t border-outline-variant pt-2 mt-1">
+<p class="text-xs text-on-surface-variant mb-1 font-medium">Custom Range:</p>
+<div class="flex flex-col gap-2">
+<input type="date" id="custom-start-date" class="px-2 py-1 border border-outline-variant rounded text-xs w-full bg-surface-container-low">
+<input type="date" id="custom-end-date" class="px-2 py-1 border border-outline-variant rounded text-xs w-full bg-surface-container-low">
+<button id="apply-custom-range" class="bg-primary text-on-primary text-xs py-1.5 rounded-lg font-medium hover:opacity-90 transition-all">Apply Range</button>
+</div>
+</div>
+</div>
 </div>
 </div>
 <!-- Top Row Stats Grid -->
@@ -411,7 +429,7 @@
 <!-- Micro-interaction Script -->
 <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Simple logic for interactive table rows
+            // Keep harmless UI polish: interactive table rows
             const rows = document.querySelectorAll('tbody tr');
             rows.forEach(row => {
                 row.addEventListener('click', () => {
@@ -420,12 +438,118 @@
                 });
             });
 
-            // Date picker dummy interaction
-            const datePicker = document.querySelector('.bg-surface.border.border-outline-variant');
-            if(datePicker) {
-                datePicker.addEventListener('click', () => {
-                    console.log('Opening date range selector...');
-                    // In a real app, this would trigger a modal or dropdown
+            // Date Range State Management
+            let selectedStart = new Date();
+            selectedStart.setDate(selectedStart.getDate() - 7);
+            let selectedEnd = new Date();
+
+            const datePickerBtn = document.getElementById('date-range-picker-btn');
+            const datePickerDropdown = document.getElementById('date-range-dropdown');
+            const dateRangeLabel = document.getElementById('date-range-label');
+            const customStartInput = document.getElementById('custom-start-date');
+            const customEndInput = document.getElementById('custom-end-date');
+            const applyCustomBtn = document.getElementById('apply-custom-range');
+            const exportBtn = document.getElementById('btn-export-report');
+            const presetButtons = document.querySelectorAll('.date-preset-btn');
+
+            function formatDate(d) {
+                const options = { month: 'short', day: 'numeric', year: 'numeric' };
+                return d.toLocaleDateString('en-US', options);
+            }
+
+            function toISODate(d) {
+                return d.toISOString().split('T')[0];
+            }
+
+            function updateLabel() {
+                if (dateRangeLabel) {
+                    dateRangeLabel.textContent = `${formatDate(selectedStart)} - ${formatDate(selectedEnd)}`;
+                }
+            }
+
+            // Initialize default label
+            updateLabel();
+
+            // Toggle date picker dropdown
+            if (datePickerBtn && datePickerDropdown) {
+                datePickerBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    datePickerDropdown.classList.toggle('hidden');
+                });
+
+                // Close dropdown on outside click
+                document.addEventListener('click', (e) => {
+                    if (!datePickerDropdown.contains(e.target) && !datePickerBtn.contains(e.target)) {
+                        datePickerDropdown.classList.add('hidden');
+                    }
+                });
+            }
+
+            // Handle preset range buttons
+            presetButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    presetButtons.forEach(b => {
+                        b.classList.remove('bg-secondary-container', 'bg-opacity-10', 'text-secondary', 'font-semibold');
+                        b.classList.add('text-on-surface-variant', 'font-medium');
+                    });
+                    btn.classList.add('bg-secondary-container', 'bg-opacity-10', 'text-secondary', 'font-semibold');
+                    btn.classList.remove('text-on-surface-variant', 'font-medium');
+
+                    const range = btn.getAttribute('data-range');
+                    selectedEnd = new Date();
+                    selectedStart = new Date();
+
+                    if (range === 'today') {
+                        // start & end are today
+                    } else if (range === '7d') {
+                        selectedStart.setDate(selectedEnd.getDate() - 7);
+                    } else if (range === '14d') {
+                        selectedStart.setDate(selectedEnd.getDate() - 14);
+                    } else if (range === '30d') {
+                        selectedStart.setDate(selectedEnd.getDate() - 30);
+                    }
+
+                    updateLabel();
+                    datePickerDropdown.classList.add('hidden');
+                });
+            });
+
+            // Handle custom range input
+            if (applyCustomBtn && customStartInput && customEndInput) {
+                applyCustomBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!customStartInput.value || !customEndInput.value) {
+                        alert('Please select both start and end dates.');
+                        return;
+                    }
+                    selectedStart = new Date(customStartInput.value);
+                    selectedEnd = new Date(customEndInput.value);
+                    
+                    if (selectedStart > selectedEnd) {
+                        alert('Start date cannot be after end date.');
+                        return;
+                    }
+
+                    presetButtons.forEach(b => {
+                        b.classList.remove('bg-secondary-container', 'bg-opacity-10', 'text-secondary', 'font-semibold');
+                        b.classList.add('text-on-surface-variant', 'font-medium');
+                    });
+
+                    updateLabel();
+                    datePickerDropdown.classList.add('hidden');
+                });
+            }
+
+            // Handle Export Report Button Click
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    const startStr = toISODate(selectedStart);
+                    const endStr = toISODate(selectedEnd);
+                    const exportUrl = `/api/reports/organisation?range=${startStr},${endStr}&format=csv`;
+                    
+                    // Trigger download
+                    window.location.href = exportUrl;
                 });
             }
         });
