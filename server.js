@@ -1,32 +1,88 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-require('dotenv').config();
+/**
+ * Sentinel Attendance — Express Server (Shared Scaffold)
+ * Run: node server.js  (or npm start / npm run dev)
+ */
 
-const connectDB = require('./shared/config/db');
+const express   = require("express");
+const cors      = require("cors");
+const path      = require("path");
+const rateLimit = require("express-rate-limit");
+
+const PORT = process.env.PORT || 3000;
+
+// ─── DB init first ───────────────────────────────────────────────────────────
+
+const { initPromise } = require("./shared/config/db");
+
+// ─── Module routes ───────────────────────────────────────────────────────────
+
+const authRoutes = require("./modules/auth/routes");                          // Melbin
+const { employeeRouter, departmentRouter } = require("./modules/employees/routes"); // Melbin
+// const attendanceRoutes = require('./modules/attendance/routes');            // Aivin
+// const qrRoutes         = require('./modules/qr/routes');                   // Aivin
+// const dashboardRoutes  = require('./modules/dashboard/routes');            // Amina
+// const reportRoutes     = require('./modules/reports/routes');              // Amina
+// const leaveRoutes      = require('./modules/leave/routes');                // Nandana
+
+// ─── App ─────────────────────────────────────────────────────────────────────
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
+app.use(cors({
+  origin: (origin, cb) => cb(null, true),
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 app.use(express.json());
 
-// Connect to MongoDB Atlas
-connectDB();
+// Serve static frontend files (login, employees, dashboard, TOTP pages, etc.)
+app.use(express.static(path.join(__dirname)));
 
-// Serve static templates
-app.use(express.static(path.join(__dirname, 'Templates')));
+// Serve Templates
+app.use("/Templates", express.static(path.join(__dirname, "Templates")));
 
-// Routes (Commented out with owner tags)
-// app.use('/api/auth', require('./modules/auth/routes'));            // Nandana
-// app.use('/api/employees', require('./modules/employees/routes'));  // Nandana
-// app.use('/api/attendance', require('./modules/attendance/routes')); // Aivin
-// app.use('/api/qr', require('./modules/qr/routes'));                // Aivin
-// app.use('/api/dashboard', require('./modules/dashboard/routes'));  // Amina
-// app.use('/api/reports', require('./modules/reports/routes'));      // Amina
-// app.use('/api/leave', require('./modules/leave/routes'));          // Melbin
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: "Too many login attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// ─── API Routes ──────────────────────────────────────────────────────────────
+
+app.use("/api/auth",        loginLimiter, authRoutes);        // Melbin
+app.use("/api/employees",   employeeRouter);                  // Melbin
+app.use("/api/departments", departmentRouter);                // Melbin
+// app.use('/api/attendance', attendanceRoutes);               // Aivin
+// app.use('/api/qr',         qrRoutes);                      // Aivin
+// app.use('/api/dashboard',  dashboardRoutes);                // Amina
+// app.use('/api/reports',    reportRoutes);                   // Amina
+// app.use('/api/leave',      leaveRoutes);                    // Nandana
+
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok", time: new Date().toISOString() });
+});
+
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "API endpoint not found." });
+});
+
+app.use((err, _req, res, _next) => {
+  console.error("[ERROR]", err.message);
+  res.status(500).json({ error: "Internal server error." });
+});
+
+// ─── Start after DB is ready ─────────────────────────────────────────────────
+
+initPromise.then(() => {
+  app.listen(PORT, () => {
+    console.log(`\n✅ Sentinel API running → http://localhost:${PORT}`);
+    console.log(`   Health: http://localhost:${PORT}/api/health`);
+    console.log(`   Open http://localhost:${PORT} in your browser to use the app.\n`);
+  });
+}).catch((err) => {
+  console.error("[FATAL] DB init failed:", err.message);
+  process.exit(1);
 });
