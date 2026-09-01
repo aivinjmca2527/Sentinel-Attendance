@@ -1,3 +1,10 @@
+const dns = require('dns');
+
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
+console.log('DNS servers:', dns.getServers());
+
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -25,7 +32,12 @@ app.use(express.static(path.join(__dirname, 'Templates')));
 // app.use('/api/qr', require('./modules/qr/routes'));                // Aivin
 // app.use('/api/dashboard', require('./modules/dashboard/routes'));  // Amina
 // app.use('/api/reports', require('./modules/reports/routes'));      // Amina
-// app.use('/api/leave', require('./modules/leave/routes'));          // Melbin
+app.use('/api/leave', require('./modules/leave/routes'));          // Melbin
+
+// Default route — redirect to Login page
+app.get('/', (req, res) => {
+  res.redirect('/Login_Page.html');
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
