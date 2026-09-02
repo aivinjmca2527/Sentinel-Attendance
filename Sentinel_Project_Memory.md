@@ -253,23 +253,13 @@ NOT all four at once:
 After all four: one full manual end-to-end pass — login → check-in → apply & approve 
 leave → dashboard reflects it all — before considering the integration done.
 
-**Status as of this handoff:** Aivin, Amina, and Nandana's branches are ready to merge 
-as-is. Melbin's structural restructure (moving his auth/employee code onto the shared 
-scaffold) has been run and is functionally verified, but has leftover files that still 
-need deleting — that cleanup is now built into the first step of Prompt A itself, so no 
-separate action is needed. Full current status and verification details: Section 10.
+**Status as of current session:** 
+- ✅ Melbin → main merged (Auth & Employee Management)
+- ✅ Aivin → main merged (QR & Attendance)
+- ✅ Nandana → main merged (Leave Management & Balance)
+- ⏳ Amina → main (Admin Dashboard & Reports) is the **next and final** merge step.
 
-**UPDATE:** Merge prompt (Prompt A, `EAMS_Antigravity_Prompts_v4_Merge_and_Mobile.md`) 
-is ready to run, following this exact order and test checklist. It includes: the Melbin 
-cleanup as a required first step; a `MERGE_PROGRESS.md` file (created at the repo root, 
-updated + committed after every step) so an interrupted session can resume from the 
-correct branch instead of restarting or re-merging; and a final wiring check after all 
-four branches are in (confirms all route mounts exist/aren't duplicated, every 
-`require()` path resolves, only one DB connection). Not yet confirmed executed — update 
-this line to "COMPLETED" once the full four-branch merge + end-to-end pass has actually 
-been run and passed. There's also a **Prompt C** for checking/pushing Nandana's work 
-(already used successfully — see Section 10) and a **Prompt D** for Melbin's restructure 
-(already run — see Section 10).
+See `MERGE_PROGRESS.md` at the repo root for exact timestamps and commit hashes of completed merges.
 
 ---
 
