@@ -54,3 +54,19 @@ Updated after every step; commit+push immediately after each entry.
   - Check-out (`POST /api/attendance/checkout`) — ✅
 - **Commit:** Aivin merge + Mongoose refactor committed to `main`
 - **Next:** Merge Nandana → main
+
+### Entry 4 — Merge Nandana → main & Resolve Auth Integration
+- **Timestamp:** 2026-09-02T10:11:00+05:30
+- **Action:** Merged `Nandana` into `main` with `--no-ff`.
+- **Conflicts:** `server.js` and `shared/config/db.js`.
+- **Integration Fixes:**
+  - Resolved conflicts by keeping `main` (Mongoose setup) and appending Nandana's leave routes.
+  - Rewrote `modules/leave/authHelpers.js` to correctly wrap the live JWT middleware (normalizing `req.user.id` to `req.user._id` and enriching with `employee_id` and `department_id`) instead of relying on dev-mode headers.
+- **Test results:** ✅ PASS
+  - Server boots — ✅
+  - Employee Leave Submission (`POST /api/leave`) — ✅
+  - Employee Leave Balance (`GET /api/leave/balance`) — ✅
+  - Admin Leave Approval (`PUT /api/leave/:id/approve`) — ✅ 
+  - Cross-module Attendance Write (Status: 'on-leave') — ✅
+- **Commit:** Nandana merge + Leave module integration committed to `main`.
+- **Next:** Merge Amina → main
