@@ -122,6 +122,12 @@ exports.totpVerify = async (req, res) => {
     user.totp_enabled = true;
     await user.save();
 
+    // Look up Employee record so employee_id is included in the JWT
+    const employee = await Employee.findOne({ user_id: user._id });
+    if (employee) {
+      user.employee_id = employee._id;
+    }
+
     const token = makeJWT(user, false);
 
     res.json({
