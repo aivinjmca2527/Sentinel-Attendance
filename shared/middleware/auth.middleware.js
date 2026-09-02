@@ -34,13 +34,15 @@ function requireAuth(req, res, next) {
  * Usage: requireRole('Manager', 'Admin', 'Super Admin')
  */
 function requireRole(...roles) {
+  const allowed = roles.flat().map(r => String(r).toLowerCase());
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: "Not authenticated." });
     }
-    if (!roles.includes(req.user.role)) {
+    const userRole = req.user.role ? String(req.user.role).toLowerCase() : '';
+    if (!allowed.includes(userRole)) {
       return res.status(403).json({
-        error: `Access denied. Required role: ${roles.join(" or ")}.`,
+        error: `Access denied. Required role: ${allowed.join(" or ")}.`,
       });
     }
     next();
