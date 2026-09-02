@@ -18,8 +18,8 @@ const { initPromise } = require("./shared/config/db");
 
 const authRoutes = require("./modules/auth/routes");                          // Melbin
 const { employeeRouter, departmentRouter } = require("./modules/employees/routes"); // Melbin
-// const attendanceRoutes = require('./modules/attendance/routes');            // Aivin
-// const qrRoutes         = require('./modules/qr/routes');                   // Aivin
+const attendanceRoutes = require('./modules/attendance/routes');               // Aivin
+const qrRoutes         = require('./modules/qr/routes');                      // Aivin
 // const dashboardRoutes  = require('./modules/dashboard/routes');            // Amina
 // const reportRoutes     = require('./modules/reports/routes');              // Amina
 // const leaveRoutes      = require('./modules/leave/routes');                // Nandana
@@ -55,8 +55,8 @@ const loginLimiter = rateLimit({
 app.use("/api/auth",        loginLimiter, authRoutes);        // Melbin
 app.use("/api/employees",   employeeRouter);                  // Melbin
 app.use("/api/departments", departmentRouter);                // Melbin
-// app.use('/api/attendance', attendanceRoutes);               // Aivin
-// app.use('/api/qr',         qrRoutes);                      // Aivin
+app.use('/api/attendance',  attendanceRoutes);                // Aivin
+app.use('/api/qr',          qrRoutes);                       // Aivin
 // app.use('/api/dashboard',  dashboardRoutes);                // Amina
 // app.use('/api/reports',    reportRoutes);                   // Amina
 // app.use('/api/leave',      leaveRoutes);                    // Nandana

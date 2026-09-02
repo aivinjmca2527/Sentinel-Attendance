@@ -157,7 +157,7 @@
 <div class="flex items-center gap-md flex-1">
 <div class="relative w-96">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
-<input class="w-full bg-surface-container-low border border-border rounded-lg pl-10 pr-4 py-2 font-body-sm text-body-sm focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary transition-shadow" placeholder="Search employee, ID or department..." type="text">
+<input id="attendance-search-input" class="w-full bg-surface-container-low border border-border rounded-lg pl-10 pr-4 py-2 font-body-sm text-body-sm focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary transition-shadow" placeholder="Search employee, ID or department..." type="text">
 </div>
 </div>
 <div class="flex items-center gap-lg">
@@ -179,13 +179,14 @@
 <div class="flex justify-between items-end">
 <div>
 <h2 class="font-headline-lg text-headline-lg text-primary mb-1">Daily Attendance Tracking</h2>
-<p class="font-body-md text-body-md text-on-surface-variant">Real-time overview of employee presence for October 24, 2023</p>
+<p class="font-body-md text-body-md text-on-surface-variant">Real-time overview of employee presence for <span id="attendance-date-display">today</span></p>
 </div>
 <div class="flex gap-sm">
-<button class="flex items-center gap-xs px-4 py-2 border border-border text-on-surface bg-surface rounded shadow-sm hover:bg-surface-container-low font-label-md text-label-md transition-colors">
+<input id="attendance-date-picker" type="date" class="flex items-center gap-xs px-4 py-2 border border-border text-on-surface bg-surface rounded shadow-sm font-label-md text-label-md">
+<button id="attendance-export-btn" class="flex items-center gap-xs px-4 py-2 border border-border text-on-surface bg-surface rounded shadow-sm hover:bg-surface-container-low font-label-md text-label-md transition-colors">
 <span class="material-symbols-outlined text-sm">download</span> Export
                         </button>
-<button class="flex items-center gap-xs px-4 py-2 bg-primary text-on-primary rounded shadow-sm hover:bg-primary/90 font-label-md text-label-md transition-colors">
+<button id="attendance-refresh-btn" class="flex items-center gap-xs px-4 py-2 bg-primary text-on-primary rounded shadow-sm hover:bg-primary/90 font-label-md text-label-md transition-colors">
 <span class="material-symbols-outlined text-sm">refresh</span> Refresh Data
                         </button>
 </div>
@@ -239,8 +240,8 @@
 <h3 class="font-headline-sm text-headline-sm text-primary">Attendance Log</h3>
 <div class="flex gap-sm">
 <div class="relative">
-<select class="appearance-none bg-surface border border-border rounded px-3 py-1.5 pr-8 font-body-sm text-body-sm focus:outline-none focus:border-secondary">
-<option>All Departments</option>
+<select id="attendance-dept-filter" class="appearance-none bg-surface border border-border rounded px-3 py-1.5 pr-8 font-body-sm text-body-sm focus:outline-none focus:border-secondary">
+<option value="">All Departments</option>
 <option>Engineering</option>
 <option>Design</option>
 <option>Marketing</option>
@@ -249,11 +250,12 @@
 <span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-sm">arrow_drop_down</span>
 </div>
 <div class="relative">
-<select class="appearance-none bg-surface border border-border rounded px-3 py-1.5 pr-8 font-body-sm text-body-sm focus:outline-none focus:border-secondary">
-<option>All Statuses</option>
-<option>On Time</option>
-<option>Late</option>
-<option>Absent</option>
+<select id="attendance-status-filter" class="appearance-none bg-surface border border-border rounded px-3 py-1.5 pr-8 font-body-sm text-body-sm focus:outline-none focus:border-secondary">
+<option value="">All Statuses</option>
+<option value="on-time">On Time</option>
+<option value="late">Late</option>
+<option value="incomplete">Incomplete</option>
+<option value="early-leave">Early Leave</option>
 </select>
 <span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-sm">arrow_drop_down</span>
 </div>
@@ -273,77 +275,14 @@
 <th class="px-md py-sm font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold text-right">Work Hours</th>
 </tr>
 </thead>
-<tbody class="font-body-sm text-body-sm text-on-surface divide-y divide-border">
-<tr class="hover:bg-surface-container-lowest transition-colors group">
-<td class="px-md py-3 flex items-center gap-3">
-<div class="w-8 h-8 rounded bg-primary-container text-on-primary-fixed flex items-center justify-center font-label-md font-bold text-xs">AS</div>
-<span class="font-medium text-primary">Alice Smith</span>
-</td>
-<td class="px-md py-3 font-label-sm text-on-surface-variant">EMP-0842</td>
-<td class="px-md py-3">Engineering</td>
-<td class="px-md py-3 font-label-sm">08:55 AM</td>
-<td class="px-md py-3 font-label-sm text-on-surface-variant">--:--</td>
-<td class="px-md py-3">
-<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success/10 text-[#047857]">
-                                            On Time
-                                        </span>
-</td>
-<td class="px-md py-3 text-right font-label-sm">In Progress</td>
-</tr>
-<tr class="bg-[#F8FAFC] hover:bg-surface-container-lowest transition-colors group">
-<td class="px-md py-3 flex items-center gap-3">
-<div class="w-8 h-8 rounded bg-primary-container text-on-primary-fixed flex items-center justify-center font-label-md font-bold text-xs">JD</div>
-<span class="font-medium text-primary">John Doe</span>
-</td>
-<td class="px-md py-3 font-label-sm text-on-surface-variant">EMP-0911</td>
-<td class="px-md py-3">Design</td>
-<td class="px-md py-3 font-label-sm text-error">09:15 AM</td>
-<td class="px-md py-3 font-label-sm text-on-surface-variant">--:--</td>
-<td class="px-md py-3">
-<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-warning/10 text-[#B45309]">
-                                            Late
-                                        </span>
-</td>
-<td class="px-md py-3 text-right font-label-sm">In Progress</td>
-</tr>
-<tr class="hover:bg-surface-container-lowest transition-colors group">
-<td class="px-md py-3 flex items-center gap-3">
-<div class="w-8 h-8 rounded bg-primary-container text-on-primary-fixed flex items-center justify-center font-label-md font-bold text-xs">RJ</div>
-<span class="font-medium text-primary">Robert Jones</span>
-</td>
-<td class="px-md py-3 font-label-sm text-on-surface-variant">EMP-0105</td>
-<td class="px-md py-3">Marketing</td>
-<td class="px-md py-3 font-label-sm">08:45 AM</td>
-<td class="px-md py-3 font-label-sm">16:30 PM</td>
-<td class="px-md py-3">
-<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-secondary/10 text-secondary">
-                                            Early Departure
-                                        </span>
-</td>
-<td class="px-md py-3 text-right font-label-sm">07h 45m</td>
-</tr>
-<tr class="bg-[#F8FAFC] hover:bg-surface-container-lowest transition-colors group">
-<td class="px-md py-3 flex items-center gap-3">
-<div class="w-8 h-8 rounded bg-primary-container text-on-primary-fixed flex items-center justify-center font-label-md font-bold text-xs">EW</div>
-<span class="font-medium text-primary">Emily White</span>
-</td>
-<td class="px-md py-3 font-label-sm text-on-surface-variant">EMP-1122</td>
-<td class="px-md py-3">Engineering</td>
-<td class="px-md py-3 font-label-sm text-on-surface-variant">--:--</td>
-<td class="px-md py-3 font-label-sm text-on-surface-variant">--:--</td>
-<td class="px-md py-3">
-<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-error/10 text-error">
-                                            Absent
-                                        </span>
-</td>
-<td class="px-md py-3 text-right font-label-sm text-on-surface-variant">00h 00m</td>
-</tr>
+<tbody id="attendance-log-tbody" class="font-body-sm text-body-sm text-on-surface divide-y divide-border">
+<tr><td colspan="7" class="px-md py-3 text-center text-on-surface-variant">Loading attendance records...</td></tr>
 </tbody>
 </table>
 </div>
 <!-- Pagination -->
 <div class="p-3 border-t border-border flex justify-between items-center bg-surface text-body-sm text-on-surface-variant">
-<span>Showing 1 to 10 of 1,248 entries</span>
+<span id="attendance-pagination-info">Showing 0 entries</span>
 <div class="flex gap-1">
 <button class="px-2 py-1 border border-border rounded hover:bg-surface-container-low disabled:opacity-50" disabled=""><span class="material-symbols-outlined text-sm">chevron_left</span></button>
 <button class="px-3 py-1 border border-secondary bg-secondary/5 text-secondary rounded font-medium">1</button>
@@ -357,4 +296,133 @@
 </div>
 </div>
 </main>
+<script>
+(function() {
+  var API_BASE = window.location.origin;
+  var tbody = document.getElementById('attendance-log-tbody');
+  var datePicker = document.getElementById('attendance-date-picker');
+  var dateDisplay = document.getElementById('attendance-date-display');
+  var searchInput = document.getElementById('attendance-search-input');
+  var deptFilter = document.getElementById('attendance-dept-filter');
+  var statusFilter = document.getElementById('attendance-status-filter');
+  var refreshBtn = document.getElementById('attendance-refresh-btn');
+  var paginationInfo = document.getElementById('attendance-pagination-info');
+
+  // Set date picker to today
+  var today = new Date();
+  datePicker.value = today.toISOString().split('T')[0];
+  dateDisplay.textContent = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  var allRecords = [];
+
+  function fetchAttendance() {
+    var dateVal = datePicker.value;
+    var url = dateVal
+      ? API_BASE + '/api/attendance?date=' + dateVal
+      : API_BASE + '/api/attendance';
+    fetch(url)
+      .then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(data) {
+        allRecords = data;
+        renderTable();
+      })
+      .catch(function(err) {
+        console.error('[Attendance] Fetch error:', err.message);
+        tbody.innerHTML = '<tr><td colspan="7" class="px-md py-3 text-center text-error">Failed to load attendance records</td></tr>';
+      });
+  }
+
+  function renderTable() {
+    var searchTerm = (searchInput.value || '').toLowerCase();
+    var deptVal = (deptFilter.value || '').toLowerCase();
+    var statusVal = statusFilter.value || '';
+
+    var filtered = allRecords.filter(function(r) {
+      if (searchTerm) {
+        var haystack = (r.employee_name + ' ' + r.employee_id + ' ' + r.designation).toLowerCase();
+        if (haystack.indexOf(searchTerm) === -1) return false;
+      }
+      if (deptVal && (r.designation || '').toLowerCase().indexOf(deptVal) === -1) return false;
+      if (statusVal && r.status !== statusVal) return false;
+      return true;
+    });
+
+    paginationInfo.textContent = 'Showing ' + filtered.length + ' of ' + allRecords.length + ' entries';
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="px-md py-3 text-center text-on-surface-variant">No records found</td></tr>';
+      return;
+    }
+
+    var html = '';
+    for (var i = 0; i < filtered.length; i++) {
+      var r = filtered[i];
+      var name = r.employee_name || 'Unknown';
+      var words = name.split(' ');
+      var initials = '';
+      for (var w = 0; w < words.length && w < 2; w++) { initials += words[w][0]; }
+      initials = initials.toUpperCase();
+      var empId = r.employee_id ? String(r.employee_id).slice(-4).toUpperCase() : '----';
+      var dept = r.designation || 'N/A';
+      var checkIn = r.check_in_time
+        ? new Date(r.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : '--:--';
+      var checkOut = r.check_out_time
+        ? new Date(r.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : '--:--';
+      var status = r.status || 'n/a';
+      var scMap = {
+        'on-time': 'bg-success/10 text-[#047857]',
+        'late': 'bg-warning/10 text-[#B45309]',
+        'early-leave': 'bg-secondary/10 text-secondary',
+        'incomplete': 'bg-surface-variant text-on-surface-variant',
+        'on-leave': 'bg-primary-fixed text-on-primary-fixed'
+      };
+      var sc = scMap[status] || 'bg-surface-variant text-on-surface-variant';
+      var statusLabel = status.replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+      var workHours;
+      if (r.working_hours != null) {
+        workHours = Math.floor(r.working_hours) + 'h ' + Math.round((r.working_hours % 1) * 60) + 'm';
+      } else if (r.check_in_time && !r.check_out_time) {
+        workHours = 'In Progress';
+      } else {
+        workHours = '00h 00m';
+      }
+      var checkInClass = status === 'late' ? 'text-error' : '';
+      var zebra = i % 2 === 1 ? 'bg-[#F8FAFC]' : '';
+
+      html += '<tr class="' + zebra + ' hover:bg-surface-container-lowest transition-colors group">'
+        + '<td class="px-md py-3 flex items-center gap-3">'
+        + '<div class="w-8 h-8 rounded bg-primary-container text-on-primary-fixed flex items-center justify-center font-label-md font-bold text-xs">' + initials + '</div>'
+        + '<span class="font-medium text-primary">' + name + '</span>'
+        + '</td>'
+        + '<td class="px-md py-3 font-label-sm text-on-surface-variant">EMP-' + empId + '</td>'
+        + '<td class="px-md py-3">' + dept + '</td>'
+        + '<td class="px-md py-3 font-label-sm ' + checkInClass + '">' + checkIn + '</td>'
+        + '<td class="px-md py-3 font-label-sm text-on-surface-variant">' + checkOut + '</td>'
+        + '<td class="px-md py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ' + sc + '">' + statusLabel + '</span></td>'
+        + '<td class="px-md py-3 text-right font-label-sm">' + workHours + '</td>'
+        + '</tr>';
+    }
+    tbody.innerHTML = html;
+  }
+
+  // Event listeners
+  datePicker.addEventListener('change', function() {
+    var d = new Date(datePicker.value + 'T00:00:00');
+    dateDisplay.textContent = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    fetchAttendance();
+  });
+  searchInput.addEventListener('input', renderTable);
+  deptFilter.addEventListener('change', renderTable);
+  statusFilter.addEventListener('change', renderTable);
+  refreshBtn.addEventListener('click', fetchAttendance);
+
+  // Initial load
+  fetchAttendance();
+})();
+</script>
 </body></html>

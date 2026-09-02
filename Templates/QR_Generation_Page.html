@@ -183,12 +183,13 @@
 <!-- Preview Card -->
 <section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)] flex flex-col items-center">
 <h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mb-md self-start">Active QR Template</h3>
-<div class="bg-surface-container-low p-md rounded-xl border border-border mb-md w-48 h-48 flex items-center justify-center relative overflow-hidden">
-<!-- Abstract representation of a QR code -->
-<div class="absolute inset-0 border-4 border-[#2563EB] opacity-20 rounded-lg scale-95 animate-pulse"></div>
-<img class="w-32 h-32 object-cover rounded shadow-sm" alt="Professional black and white QR code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&amp;data=TPL-889-SEC">
+<div id="qr-display-area" class="bg-surface-container-low p-md rounded-xl border border-border mb-md w-48 h-48 flex items-center justify-center relative overflow-hidden">
+<!-- QR code rendered dynamically via JS -->
+<div id="qr-pulse-ring" class="absolute inset-0 border-4 border-[#2563EB] opacity-20 rounded-lg scale-95 animate-pulse"></div>
+<img id="qr-code-image" class="w-32 h-32 object-cover rounded shadow-sm" alt="Live QR code for attendance check-in" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&amp;data=loading">
 </div>
-<p class="font-label-sm text-label-sm text-on-surface-variant text-center">Template ID: TPL-889-SEC</p>
+<p id="qr-expiry-text" class="font-label-sm text-label-sm text-on-surface-variant text-center">Loading QR code...</p>
+<p id="qr-countdown" class="font-label-md text-label-md text-secondary text-center mt-xs"></p>
 </section>
 </div>
 <!-- Right Column (Active Kiosks Table) -->
@@ -197,58 +198,23 @@
 <section class="bg-surface rounded-xl border border-border overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.02)] h-full flex flex-col">
 <div class="p-lg border-b border-border flex justify-between items-center bg-surface-bright">
 <div class="flex items-center gap-sm">
-<span class="material-symbols-outlined text-secondary">computer</span>
-<h3 class="font-headline-md text-headline-md text-on-surface">Active Kiosks</h3>
+<span class="material-symbols-outlined text-secondary">history</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Recent Scans</h3>
 </div>
-<span class="bg-surface-container-low text-on-surface-variant font-label-md px-sm py-xs rounded-full border border-border">3 Online</span>
+<span id="scan-count-badge" class="bg-surface-container-low text-on-surface-variant font-label-md px-sm py-xs rounded-full border border-border">0 scans</span>
 </div>
 <div class="overflow-x-auto flex-grow">
 <table class="w-full text-left font-body-md text-body-md">
 <thead class="bg-surface-bright text-on-surface-variant font-label-md text-label-md border-b border-border">
 <tr>
-<th class="px-lg py-md font-medium">Location Name</th>
-<th class="px-lg py-md font-medium">Device ID</th>
+<th class="px-lg py-md font-medium">Employee</th>
+<th class="px-lg py-md font-medium">Type</th>
 <th class="px-lg py-md font-medium">Status</th>
-<th class="px-lg py-md font-medium">Last Sync Time</th>
+<th class="px-lg py-md font-medium">Time</th>
 </tr>
 </thead>
-<tbody class="divide-y divide-border">
-<!-- Row 1 -->
-<tr class="hover:bg-[#F8FAFC] transition-colors">
-<td class="px-lg py-md text-on-surface font-medium">Main Entrance - Tower A</td>
-<td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">KSK-001-A</td>
-<td class="px-lg py-md">
-<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-success bg-opacity-10 text-success font-label-md text-[12px]">
-<span class="w-2 h-2 rounded-full bg-success"></span>
-                                            Online
-                                        </span>
-</td>
-<td class="px-lg py-md text-on-surface-variant">Just now</td>
-</tr>
-<!-- Row 2 (Zebra stripe alternative style for demo, using simple hover for cleaner look as per guidelines but requested zebra in text, will use alternating light bg) -->
-<tr class="bg-[#F8FAFC] hover:bg-surface-variant transition-colors">
-<td class="px-lg py-md text-on-surface font-medium">East Wing Entry</td>
-<td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">KSK-042-E</td>
-<td class="px-lg py-md">
-<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-success bg-opacity-10 text-success font-label-md text-[12px]">
-<span class="w-2 h-2 rounded-full bg-success"></span>
-                                            Online
-                                        </span>
-</td>
-<td class="px-lg py-md text-on-surface-variant">2 mins ago</td>
-</tr>
-<!-- Row 3 -->
-<tr class="hover:bg-[#F8FAFC] transition-colors">
-<td class="px-lg py-md text-on-surface font-medium">Staff Cafeteria</td>
-<td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">KSK-118-C</td>
-<td class="px-lg py-md">
-<span class="inline-flex items-center gap-xs px-2 py-1 rounded-full bg-surface-variant text-on-surface-variant font-label-md text-[12px]">
-<span class="w-2 h-2 rounded-full bg-outline"></span>
-                                            Offline
-                                        </span>
-</td>
-<td class="px-lg py-md text-on-surface-variant">14 hours ago</td>
-</tr>
+<tbody id="recent-scans-tbody" class="divide-y divide-border">
+<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">Loading recent scans...</td></tr>
 </tbody>
 </table>
 </div>
@@ -257,6 +223,106 @@
 </div>
 </main>
 
+<script>
+(function() {
+  const API_BASE = window.location.origin;
+  const QR_POLL_MS = 5000;
 
+  const qrImage      = document.getElementById('qr-code-image');
+  const qrExpiryText = document.getElementById('qr-expiry-text');
+  const qrCountdown  = document.getElementById('qr-countdown');
+  const scansTbody   = document.getElementById('recent-scans-tbody');
+  const scanBadge    = document.getElementById('scan-count-badge');
+
+  let currentExpiresAt = null;
+  let countdownTimer   = null;
+
+  // ── QR Polling ────────────────────────────────────────────
+  async function fetchCurrentQR() {
+    try {
+      const res = await fetch(`${API_BASE}/api/qr/current`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      // Update QR code image via public QR API
+      const qrData = JSON.stringify({
+        id: data.qr_session_id,
+        code: data.code_value,
+        sig: data.signature,
+      });
+      qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+
+      // Update expiry text
+      currentExpiresAt = new Date(data.expires_at);
+      qrExpiryText.textContent = `Session: ${data.qr_session_id.slice(-8).toUpperCase()}`;
+
+      // Start countdown
+      startCountdown();
+    } catch (err) {
+      console.error('[QR Poll] Error:', err.message);
+      qrExpiryText.textContent = 'Error loading QR code';
+      qrCountdown.textContent = '';
+    }
+  }
+
+  function startCountdown() {
+    if (countdownTimer) clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      if (!currentExpiresAt) return;
+      const remaining = Math.max(0, Math.ceil((currentExpiresAt - Date.now()) / 1000));
+      qrCountdown.textContent = remaining > 0 ? `Expires in ${remaining}s` : 'Refreshing...';
+      if (remaining <= 0) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+    }, 250);
+  }
+
+  // ── Recent Scans Polling ──────────────────────────────────
+  async function fetchRecentScans() {
+    try {
+      const res = await fetch(`${API_BASE}/api/qr/recent-scans`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const scans = await res.json();
+
+      scanBadge.textContent = `${scans.length} scan${scans.length !== 1 ? 's' : ''}`;
+
+      if (scans.length === 0) {
+        scansTbody.innerHTML = '<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">No recent scans</td></tr>';
+        return;
+      }
+
+      scansTbody.innerHTML = scans.map((s, i) => {
+        const isCheckout = !!s.check_out_time;
+        const type = isCheckout ? 'Check-out' : 'Check-in';
+        const time = new Date(isCheckout ? s.check_out_time : s.check_in_time);
+        const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const statusColors = {
+          'on-time': 'bg-success/10 text-[#047857]',
+          'late': 'bg-warning/10 text-[#B45309]',
+          'early-leave': 'bg-secondary/10 text-secondary',
+          'incomplete': 'bg-surface-variant text-on-surface-variant',
+        };
+        const sc = statusColors[s.status] || 'bg-surface-variant text-on-surface-variant';
+        const zebra = i % 2 === 1 ? 'bg-[#F8FAFC]' : '';
+        return `<tr class="${zebra} hover:bg-surface-variant transition-colors">
+          <td class="px-lg py-md text-on-surface font-medium">${s.employee_name}</td>
+          <td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">${type}</td>
+          <td class="px-lg py-md"><span class="inline-flex items-center gap-xs px-2 py-1 rounded-full font-label-md text-[12px] ${sc}"><span class="w-2 h-2 rounded-full" style="background:currentColor"></span>${s.status || 'n/a'}</span></td>
+          <td class="px-lg py-md text-on-surface-variant">${timeStr}</td>
+        </tr>`;
+      }).join('');
+    } catch (err) {
+      console.error('[Scans Poll] Error:', err.message);
+    }
+  }
+
+  // ── Boot ──────────────────────────────────────────────────
+  fetchCurrentQR();
+  fetchRecentScans();
+  setInterval(fetchCurrentQR, QR_POLL_MS);
+  setInterval(fetchRecentScans, QR_POLL_MS);
+})();
+</script>
 
 </body></html>
