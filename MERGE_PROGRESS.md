@@ -37,5 +37,20 @@ Updated after every step; commit+push immediately after each entry.
   - Departments: 5 loaded — ✅
   - Employees: 8 loaded — ✅
 - **Merge commit:** `29eb461` on `main`, pushed to `origin/main`
-- **Next:** Merge Aivin → main
-
+### Entry 3 — Merge Aivin → main & Resolve DB Architecture Conflict
+- **Timestamp:** 2026-09-02T09:37:00+05:30
+- **Action:** Merged `Aivin` into `main`, refactored Melbin's modules back to MongoDB to match the spec
+- **Conflicts:** `server.js` (kept Melbin's base, added Aivin's routes) and `package-lock.json`
+- **Architecture Fix:**
+  - Melbin used SQLite instead of MongoDB/Mongoose. Aivin used Mongoose.
+  - Converted `shared/config/db.js` to use `mongoose` and fallback to `mongodb-memory-server` for local dev.
+  - Rewrote Melbin's `modules/auth/controller.js` and `modules/employees/controller.js` to use Mongoose schemas.
+  - Added `employee_id` to JWT payload in `auth/controller.js` to make Aivin's checkin route work.
+- **Test results:** ✅ PASS
+  - QR Service boot — ✅
+  - Auth/Employee endpoints on Mongoose — ✅
+  - QR rotation (`GET /api/qr/current`) — ✅
+  - Check-in (`POST /api/attendance/checkin`) — ✅
+  - Check-out (`POST /api/attendance/checkout`) — ✅
+- **Commit:** Aivin merge + Mongoose refactor committed to `main`
+- **Next:** Merge Nandana → main

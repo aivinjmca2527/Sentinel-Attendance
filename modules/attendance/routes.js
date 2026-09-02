@@ -6,16 +6,16 @@
 
 const express = require('express');
 const router = express.Router();
-const authMiddleware = require('../../shared/middleware/auth.middleware');
+const { requireAuth } = require('../../shared/middleware/auth.middleware');
 const attendanceController = require('./controller');
 
 // POST /api/attendance/checkin  — employee scans QR to check in (mobile app)
-router.post('/checkin', authMiddleware, attendanceController.checkin);
+router.post('/checkin', requireAuth, attendanceController.checkin);
 
 // POST /api/attendance/checkout — employee scans QR to check out (mobile app)
-router.post('/checkout', authMiddleware, attendanceController.checkout);
+router.post('/checkout', requireAuth, attendanceController.checkout);
 
 // GET  /api/attendance          — manager/admin queries attendance records
-router.get('/', authMiddleware, attendanceController.getAttendanceRecords);
+router.get('/', requireAuth, attendanceController.getAttendanceRecords);
 
 module.exports = router;
