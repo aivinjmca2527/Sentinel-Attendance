@@ -26,3 +26,16 @@ Updated after every step; commit+push immediately after each entry.
 - **Conflicts:** None
 - **Commit:** `2eec3fa` on `Melbin`, pushed to `origin/Melbin`
 
+### Entry 2 — Merge Melbin → main
+- **Timestamp:** 2026-09-02T09:25:00+05:30
+- **Action:** Merged `Melbin` into `main` with `--no-ff`
+- **Conflicts:** None (clean merge)
+- **Test results:** ✅ PASS
+  - Server boots on `main` (`node server.js`) — ✅
+  - Login works (`POST /api/auth/login`) — ✅ (requireTotpSetup: true for admin)
+  - TOTP setup works — ✅
+  - Departments: 5 loaded — ✅
+  - Employees: 8 loaded — ✅
+- **Merge commit:** `29eb461` on `main`, pushed to `origin/main`
+- **Next:** Merge Aivin → main
+
