@@ -70,3 +70,21 @@ Updated after every step; commit+push immediately after each entry.
   - Cross-module Attendance Write (Status: 'on-leave') — ✅
 - **Commit:** Nandana merge + Leave module integration committed to `main`.
 - **Next:** Merge Amina → main
+
+### Entry 5 — Merge Amina → main & Complete Web App Integration
+- **Timestamp:** 2026-09-02T10:35:00+05:30
+- **Action:** Merged `Amina` into `main` with `--no-ff` (Admin Dashboard & Security Reports module).
+- **Conflicts:** `server.js` (uncommented and mounted dashboard and report routes) and `Templates/Admin_Dashboard_Page.html` (kept Amina's live API fetching script).
+- **Integration Fixes:**
+  - Enhanced `shared/middleware/auth.middleware.js` to support `roles.flat()` and case-normalization for role guards.
+  - Updated `modules/dashboard/routes.js` and `modules/reports/routes.js` to enforce `requireAuth` followed by `requireRole('admin')`.
+- **Test results:** ✅ PASS
+  - Server boots — ✅
+  - Admin Authentication + TOTP setup/verify (`POST /api/auth/login`, `totp/setup`, `totp/verify`) — ✅
+  - Dashboard Summary (`GET /api/dashboard/summary`) — ✅
+  - Dashboard Attendance Trends (`GET /api/dashboard/attendance-trends?range=7d`) — ✅
+  - Department Comparison (`GET /api/dashboard/department-comparison`) — ✅
+  - Security Reports (JSON & CSV) (`GET /api/reports/organisation`) — ✅
+- **Commit:** `3ee230c` on `main`
+- **Status:** All 4 Web Application feature branches (Melbin, Aivin, Nandana, Amina) are 100% merged and integrated on `main`!
+
