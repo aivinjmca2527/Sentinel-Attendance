@@ -258,10 +258,12 @@ leave → dashboard reflects it all — before considering the integration done.
 - ✅ Aivin → main merged (QR & Attendance)
 - ✅ Nandana → main merged (Leave Management & Balance)
 - ✅ Amina → main merged (Admin Dashboard & Security Reports)
+- ✅ Post-Merge Fix: Frontend-to-API wiring completed (all 6 templates now properly fetch from the live API, handle 401s, and send Auth tokens).
+- ✅ Post-Merge Fix: Added root redirect (`/` -> `/Templates/Login_Page.html`) for easier access.
 
 **ALL 4 WEB APPLICATION MODULES ARE 100% INTEGRATED & VERIFIED ON `main`.**
 
-See `MERGE_PROGRESS.md` at the repo root for exact timestamps and commit hashes of completed merges.
+See `MERGE_PROGRESS.md` at the repo root for exact timestamps, commit hashes, and detailed logs of these fixes (Entry 7 covers the frontend API wiring).
 
 ---
 
