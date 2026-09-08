@@ -278,4 +278,240 @@
 </div>
 </main>
 <!-- Suppressed Shared Components: SideNav and TopNav are omitted per instructions for transactional/login screens. -->
+
+<!-- TOTP Modal -->
+<div id="totp-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 hidden">
+  <div class="bg-surface border border-border shadow-lg rounded-xl p-lg md:p-xl w-full max-w-md mx-4">
+    <div class="text-center mb-lg">
+      <div class="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-primary-container text-on-primary mb-md">
+        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+      </div>
+      <h2 id="totp-title" class="font-headline-sm text-headline-sm text-primary">Two-Factor Authentication</h2>
+      <p id="totp-subtitle" class="font-body-sm text-body-sm text-on-surface-variant mt-sm">Enter the 6-digit code from your authenticator app.</p>
+    </div>
+    <div id="totp-qr-area" class="hidden flex flex-col items-center mb-lg">
+      <img id="totp-qr-img" class="w-48 h-48 rounded-lg border border-border mb-sm" src="" alt="TOTP QR Code">
+      <p class="font-body-sm text-body-sm text-on-surface-variant text-center">Scan this QR code with your authenticator app (e.g. Google Authenticator), then enter the code below.</p>
+    </div>
+    <div class="mb-lg">
+      <label for="totp-code" class="block font-label-md text-label-md text-on-surface mb-sm">Verification Code</label>
+      <input type="text" id="totp-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" class="block w-full px-3 py-2 border border-border rounded-md bg-surface text-on-surface font-label-md text-center tracking-[0.5em] placeholder-on-surface-variant focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary transition-colors text-xl" placeholder="000000">
+      <p id="totp-error" class="font-body-sm text-body-sm text-error mt-sm hidden"></p>
+    </div>
+    <button id="totp-submit-btn" type="button" class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm font-label-md text-label-md text-white bg-[#0F172A] hover:bg-[#1E293B] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary transition-colors duration-200">
+      Verify & Sign In
+    </button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const API_BASE = window.location.origin;
+
+  // ── DOM refs ──
+  const form = document.querySelector('form');
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const eyeBtn = passwordInput.parentElement.querySelector('button[type="button"]');
+  const eyeIcon = eyeBtn.querySelector('.material-symbols-outlined');
+
+  // Error display — insert after the 2FA note, before submit button
+  const errorArea = document.createElement('p');
+  errorArea.className = 'font-body-sm text-body-sm text-error hidden';
+  errorArea.id = 'login-error';
+  submitBtn.parentElement.insertBefore(errorArea, submitBtn);
+
+  // TOTP modal refs
+  const totpModal = document.getElementById('totp-modal');
+  const totpTitle = document.getElementById('totp-title');
+  const totpSubtitle = document.getElementById('totp-subtitle');
+  const totpQrArea = document.getElementById('totp-qr-area');
+  const totpQrImg = document.getElementById('totp-qr-img');
+  const totpCodeInput = document.getElementById('totp-code');
+  const totpError = document.getElementById('totp-error');
+  const totpSubmitBtn = document.getElementById('totp-submit-btn');
+
+  let tempToken = null;
+
+  function showError(msg) {
+    errorArea.textContent = msg;
+    errorArea.classList.remove('hidden');
+  }
+  function hideError() {
+    errorArea.classList.add('hidden');
+    errorArea.textContent = '';
+  }
+
+  // ── Eye icon toggle ──
+  eyeBtn.addEventListener('click', () => {
+    const isPassword = passwordInput.type === 'password';
+    passwordInput.type = isPassword ? 'text' : 'password';
+    eyeIcon.textContent = isPassword ? 'visibility' : 'visibility_off';
+  });
+
+  // ── Handle final token ──
+  function handleFinalAuth(data) {
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    const role = (data.user.role || '').toLowerCase();
+    if (['admin', 'super admin', 'manager'].includes(role)) {
+      window.location.href = '/Templates/Admin_Dashboard_Page.html';
+    } else {
+      showError('Your role (' + data.user.role + ') is not authorized for the web app. Employees use the mobile app.');
+      totpModal.classList.add('hidden');
+    }
+  }
+
+  // ── TOTP verify ──
+  async function verifyTotp() {
+    const code = totpCodeInput.value.trim();
+    if (!code || code.length !== 6) {
+      totpError.textContent = 'Please enter a 6-digit code.';
+      totpError.classList.remove('hidden');
+      return;
+    }
+    totpSubmitBtn.disabled = true;
+    totpSubmitBtn.textContent = 'Verifying...';
+    totpError.classList.add('hidden');
+
+    try {
+      const res = await fetch(API_BASE + '/api/auth/totp/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + tempToken
+        },
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        totpError.textContent = data.error || 'Verification failed.';
+        totpError.classList.remove('hidden');
+        return;
+      }
+      handleFinalAuth(data);
+    } catch (err) {
+      totpError.textContent = 'Network error. Please try again.';
+      totpError.classList.remove('hidden');
+    } finally {
+      totpSubmitBtn.disabled = false;
+      totpSubmitBtn.textContent = 'Verify & Sign In';
+    }
+  }
+
+  totpSubmitBtn.addEventListener('click', verifyTotp);
+  totpCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') verifyTotp(); });
+
+  // ── TOTP setup (first time) ──
+  async function showTotpSetup() {
+    totpTitle.textContent = 'Set Up Two-Factor Authentication';
+    totpSubtitle.textContent = 'Scan the QR code with your authenticator app, then enter the code below.';
+    totpQrArea.classList.remove('hidden');
+    totpError.classList.add('hidden');
+    totpCodeInput.value = '';
+    totpModal.classList.remove('hidden');
+
+    try {
+      const res = await fetch(API_BASE + '/api/auth/totp/setup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + tempToken
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        totpError.textContent = data.error || 'Failed to set up TOTP.';
+        totpError.classList.remove('hidden');
+        return;
+      }
+      totpQrImg.src = data.qrDataUrl;
+    } catch (err) {
+      totpError.textContent = 'Network error loading QR code.';
+      totpError.classList.remove('hidden');
+    }
+  }
+
+  // ── TOTP verify (returning user) ──
+  function showTotpVerify() {
+    totpTitle.textContent = 'Two-Factor Authentication';
+    totpSubtitle.textContent = 'Enter the 6-digit code from your authenticator app.';
+    totpQrArea.classList.add('hidden');
+    totpError.classList.add('hidden');
+    totpCodeInput.value = '';
+    totpModal.classList.remove('hidden');
+  }
+
+  // ── Form submit ──
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideError();
+
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+      showError('Please enter both email and password.');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Signing in...';
+
+    try {
+      const res = await fetch(API_BASE + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'Login failed. Please check your credentials.');
+        return;
+      }
+
+      if (data.requireTotpSetup && data.tempToken) {
+        tempToken = data.tempToken;
+        showTotpSetup();
+        return;
+      }
+
+      if (data.requireTotp && data.tempToken) {
+        tempToken = data.tempToken;
+        showTotpVerify();
+        return;
+      }
+
+      if (data.token && data.user) {
+        handleFinalAuth(data);
+        return;
+      }
+
+      showError('Unexpected response from server.');
+    } catch (err) {
+      showError('Network error. Please check your connection and try again.');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Sign In to Portal';
+    }
+  });
+
+  // If already logged in, redirect
+  const existingToken = localStorage.getItem('token');
+  const existingUser = localStorage.getItem('user');
+  if (existingToken && existingUser) {
+    try {
+      const u = JSON.parse(existingUser);
+      const role = (u.role || '').toLowerCase();
+      if (['admin', 'super admin', 'manager'].includes(role)) {
+        window.location.href = '/Templates/Admin_Dashboard_Page.html';
+      }
+    } catch (_) {}
+  }
+})();
+</script>
 </body></html>

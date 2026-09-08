@@ -299,6 +299,20 @@
 <script>
 (function() {
   var API_BASE = window.location.origin;
+
+  function authHeaders(extra) {
+    var token = localStorage.getItem('token');
+    var h = { 'Content-Type': 'application/json' };
+    if (token) h['Authorization'] = 'Bearer ' + token;
+    if (extra) { for (var k in extra) h[k] = extra[k]; }
+    return h;
+  }
+
+  if (!localStorage.getItem('token')) {
+    window.location.href = '/Templates/Login_Page.html';
+    return;
+  }
+
   var tbody = document.getElementById('attendance-log-tbody');
   var datePicker = document.getElementById('attendance-date-picker');
   var dateDisplay = document.getElementById('attendance-date-display');
@@ -320,12 +334,14 @@
     var url = dateVal
       ? API_BASE + '/api/attendance?date=' + dateVal
       : API_BASE + '/api/attendance';
-    fetch(url)
+    fetch(url, { headers: authHeaders() })
       .then(function(res) {
+        if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return; }
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
       })
       .then(function(data) {
+        if (!data) return;
         allRecords = data;
         renderTable();
       })

@@ -429,14 +429,35 @@
 <!-- Micro-interaction Script -->
 <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // ── Auth ──
+            function authHeaders(extra = {}) {
+                const token = localStorage.getItem('token');
+                return { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...extra };
+            }
+            function handle401(res) {
+                if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return true; }
+                if (res.status === 403) {
+                    document.querySelector('.flex-1.overflow-y-auto').innerHTML = '<div class="flex items-center justify-center h-full"><div class="text-center"><span class="material-symbols-outlined text-6xl text-error opacity-30 mb-4">lock</span><h2 class="font-headline-sm text-headline-sm text-primary mb-2">Access Denied</h2><p class="text-on-surface-variant">You do not have permission to view security reports.</p></div></div>';
+                    return true;
+                }
+                return false;
+            }
+
+            if (!localStorage.getItem('token')) {
+                window.location.href = '/Templates/Login_Page.html';
+                return;
+            }
+
             // Keep harmless UI polish: interactive table rows
-            const rows = document.querySelectorAll('tbody tr');
-            rows.forEach(row => {
-                row.addEventListener('click', () => {
-                    rows.forEach(r => r.classList.remove('bg-secondary-container', 'bg-opacity-10'));
-                    row.classList.add('bg-secondary-container', 'bg-opacity-10');
+            function bindRowClicks() {
+                const rows = document.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    row.addEventListener('click', () => {
+                        rows.forEach(r => r.classList.remove('bg-secondary-container', 'bg-opacity-10'));
+                        row.classList.add('bg-secondary-container', 'bg-opacity-10');
+                    });
                 });
-            });
+            }
 
             // Date Range State Management
             let selectedStart = new Date();
@@ -512,6 +533,7 @@
 
                     updateLabel();
                     datePickerDropdown.classList.add('hidden');
+                    fetchReport();
                 });
             });
 
@@ -538,20 +560,117 @@
 
                     updateLabel();
                     datePickerDropdown.classList.add('hidden');
+                    fetchReport();
                 });
             }
 
-            // Handle Export Report Button Click
+            // ── Fetch report (JSON) ──
+            async function fetchReport() {
+                const startStr = toISODate(selectedStart);
+                const endStr = toISODate(selectedEnd);
+                try {
+                    const res = await fetch(`/api/reports/organisation?format=json&startDate=${startStr}&endDate=${endStr}`, {
+                        headers: authHeaders()
+                    });
+                    if (handle401(res)) return;
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const result = await res.json();
+                    renderReport(result);
+                } catch (err) {
+                    console.error('[Reports] Fetch error:', err);
+                }
+            }
+
+            // ── Render report into audit trail table ──
+            function renderReport(result) {
+                const tbl = document.querySelector('table tbody');
+                if (!tbl) return;
+
+                // Update stat cards from summary
+                if (result.summary) {
+                    const statCards = document.querySelectorAll('.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-4 > div');
+                    if (statCards[0]) {
+                        const val = statCards[0].querySelector('.text-headline-md');
+                        if (val) val.textContent = (result.summary.total_late + result.summary.total_incomplete).toLocaleString();
+                    }
+                    if (statCards[3]) {
+                        const val = statCards[3].querySelector('.text-headline-md');
+                        if (val) val.textContent = (result.summary.total_late || 0).toLocaleString();
+                    }
+                }
+
+                // Update event count
+                const eventCount = document.querySelector('.p-md.border-t span');
+                if (eventCount && result.meta) {
+                    eventCount.textContent = 'Showing ' + (result.data ? result.data.length : 0) + ' of ' + result.meta.total_records + ' security events';
+                }
+
+                if (!result.data || result.data.length === 0) {
+                    tbl.innerHTML = '<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">No records found for this date range.</td></tr>';
+                    bindRowClicks();
+                    return;
+                }
+
+                const iconMap = {
+                    'on-time': { icon: 'login', color: 'text-outline' },
+                    'late': { icon: 'schedule', color: 'text-warning' },
+                    'early-leave': { icon: 'logout', color: 'text-secondary' },
+                    'incomplete': { icon: 'scan_delete', color: 'text-error' },
+                    'on-leave': { icon: 'event_busy', color: 'text-outline' },
+                };
+                const statusMap = {
+                    'on-time': { label: 'Success', cls: 'text-success bg-success bg-opacity-10' },
+                    'late': { label: 'Warning', cls: 'text-warning bg-warning bg-opacity-10' },
+                    'early-leave': { label: 'Warning', cls: 'text-warning bg-warning bg-opacity-10' },
+                    'incomplete': { label: 'Critical', cls: 'text-error bg-error bg-opacity-10' },
+                    'on-leave': { label: 'Info', cls: 'text-secondary bg-secondary bg-opacity-10' },
+                };
+
+                tbl.innerHTML = result.data.slice(0, 50).map((row, i) => {
+                    const ic = iconMap[row.status] || { icon: 'info', color: 'text-outline' };
+                    const st = statusMap[row.status] || { label: row.status, cls: 'text-on-surface-variant bg-surface-container-low' };
+                    const zebra = i % 2 === 1 ? 'bg-surface-container-low/30' : '';
+                    const typeLabel = row.type === 'leave' ? 'Leave Record' : (row.status || 'Attendance').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                    return `<tr class="hover:bg-surface-container-lowest transition-colors ${zebra}">
+                        <td class="px-lg py-md text-body-md font-label-md">${row.date}</td>
+                        <td class="px-lg py-md"><div class="flex items-center gap-sm"><span class="material-symbols-outlined ${ic.color}">${ic.icon}</span><span class="text-body-md">${typeLabel}</span></div></td>
+                        <td class="px-lg py-md text-body-md">${row.employee_name} (${row.department})</td>
+                        <td class="px-lg py-md"><span class="px-sm py-1 rounded-full ${st.cls} font-label-md">${st.label}</span></td>
+                    </tr>`;
+                }).join('');
+
+                bindRowClicks();
+            }
+
+            // Handle Export Report Button Click — CSV download with auth
             if (exportBtn) {
-                exportBtn.addEventListener('click', () => {
+                exportBtn.addEventListener('click', async () => {
                     const startStr = toISODate(selectedStart);
                     const endStr = toISODate(selectedEnd);
-                    const exportUrl = `/api/reports/organisation?range=${startStr},${endStr}&format=csv`;
-                    
-                    // Trigger download
-                    window.location.href = exportUrl;
+                    try {
+                        const res = await fetch(`/api/reports/organisation?format=csv&startDate=${startStr}&endDate=${endStr}`, {
+                            headers: authHeaders()
+                        });
+                        if (handle401(res)) return;
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `sentinel_report_${startStr}_to_${endStr}.csv`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    } catch (err) {
+                        console.error('[Export] Error:', err);
+                        alert('Failed to export report.');
+                    }
                 });
             }
+
+            // ── Initial load ──
+            fetchReport();
         });
     </script>
 

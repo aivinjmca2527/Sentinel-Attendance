@@ -228,6 +228,15 @@
   const API_BASE = window.location.origin;
   const QR_POLL_MS = 5000;
 
+  function authHeaders(extra = {}) {
+    const token = localStorage.getItem('token');
+    return { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...extra };
+  }
+
+  if (!localStorage.getItem('token')) {
+    window.location.href = '/Templates/Login_Page.html';
+  }
+
   const qrImage      = document.getElementById('qr-code-image');
   const qrExpiryText = document.getElementById('qr-expiry-text');
   const qrCountdown  = document.getElementById('qr-countdown');
@@ -240,7 +249,8 @@
   // ── QR Polling ────────────────────────────────────────────
   async function fetchCurrentQR() {
     try {
-      const res = await fetch(`${API_BASE}/api/qr/current`);
+      const res = await fetch(`${API_BASE}/api/qr/current`, { headers: authHeaders() });
+      if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
@@ -281,7 +291,8 @@
   // ── Recent Scans Polling ──────────────────────────────────
   async function fetchRecentScans() {
     try {
-      const res = await fetch(`${API_BASE}/api/qr/recent-scans`);
+      const res = await fetch(`${API_BASE}/api/qr/recent-scans`, { headers: authHeaders() });
+      if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const scans = await res.json();
 

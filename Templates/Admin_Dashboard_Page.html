@@ -238,6 +238,15 @@
 <script data-purpose="chart-rendering">
     let currentRange = '7d';
 
+    function authHeaders(extra = {}) {
+      const token = localStorage.getItem('token');
+      return { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...extra };
+    }
+
+    if (!localStorage.getItem('token')) {
+      window.location.href = '/Templates/Login_Page.html';
+    }
+
     // Simple canvas drawing script to replicate the requested line chart
     function drawAttendanceChart(data = [30, 45, 55, 65, 85], labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']) {
       const canvas = document.getElementById('attendanceChart');
@@ -333,7 +342,8 @@
     // Fetch and render dashboard summary
     async function loadSummary() {
       try {
-        const res = await fetch('/api/dashboard/summary');
+        const res = await fetch('/api/dashboard/summary', { headers: authHeaders() });
+        if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return; }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
         if (result.success && result.data) {
@@ -424,7 +434,8 @@
     async function loadTrends(range = '7d') {
       try {
         currentRange = range;
-        const res = await fetch(`/api/dashboard/attendance-trends?range=${range}`);
+        const res = await fetch(`/api/dashboard/attendance-trends?range=${range}`, { headers: authHeaders() });
+        if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return; }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
         if (result.success && result.data) {
@@ -444,7 +455,8 @@
     // Fetch and render department comparison
     async function loadDepartments() {
       try {
-        const res = await fetch('/api/dashboard/department-comparison');
+        const res = await fetch('/api/dashboard/department-comparison', { headers: authHeaders() });
+        if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return; }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
         if (result.success && result.data) {
@@ -518,11 +530,26 @@
         });
       }
 
-      // Export Report button
+      // Export Report button — use auth + blob download
       const exportBtn = document.getElementById('btn-export-report');
       if (exportBtn) {
-        exportBtn.addEventListener('click', () => {
-          window.location.href = '/api/reports/organisation?format=csv';
+        exportBtn.addEventListener('click', async () => {
+          try {
+            const res = await fetch('/api/reports/organisation?format=csv', { headers: authHeaders() });
+            if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return; }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sentinel_dashboard_report.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          } catch (err) {
+            console.error('[Export]', err);
+          }
         });
       }
 

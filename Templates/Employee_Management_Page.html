@@ -320,5 +320,333 @@
 </a>
 </nav>
 
+<script>
+(function () {
+  'use strict';
+
+  const API_BASE = window.location.origin;
+
+  function authHeaders(extra = {}) {
+    const token = localStorage.getItem('token');
+    return { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...extra };
+  }
+
+  function handle401(res) {
+    if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return true; }
+    return false;
+  }
+
+  // ── Role check ──
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const userRole = (currentUser.role || '').toLowerCase();
+  const canWrite = ['manager', 'admin', 'super admin'].includes(userRole);
+
+  // ── DOM refs ──
+  const tbody = document.querySelector('tbody');
+  const searchInput = document.querySelector('input[placeholder*="Search"]');
+  const filterBtn = document.querySelector('button .material-symbols-outlined');
+  const addBtn = document.querySelector('button .material-symbols-outlined + .material-symbols-outlined') ?
+    null : // fallback
+    [...document.querySelectorAll('button')].find(b => b.textContent.includes('Add New Employee'));
+  const paginationInfo = document.querySelector('.p-4.border-t .div, .p-4.border-t div') ||
+    document.querySelector('.p-4.border-t');
+
+  let allEmployees = [];
+  let allDepartments = [];
+
+  // Hide write controls if not authorized
+  if (!canWrite && addBtn) addBtn.style.display = 'none';
+
+  // ── Create Add/Edit Modal ──
+  const modalHtml = `
+    <div id="emp-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 hidden">
+      <div class="bg-surface border border-border shadow-lg rounded-xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="emp-modal-title" class="font-headline-sm text-headline-sm font-bold text-primary">Add New Employee</h3>
+          <button id="emp-modal-close" class="text-on-surface-variant hover:text-primary p-1">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <form id="emp-form" class="space-y-4">
+          <input type="hidden" id="emp-edit-id" value="">
+          <div>
+            <label class="block font-label-md text-label-md text-on-surface mb-1">Full Name *</label>
+            <input type="text" id="emp-name" required class="w-full px-3 py-2 border border-border rounded-DEFAULT bg-surface text-on-surface font-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+          </div>
+          <div>
+            <label class="block font-label-md text-label-md text-on-surface mb-1">Email *</label>
+            <input type="email" id="emp-email" required class="w-full px-3 py-2 border border-border rounded-DEFAULT bg-surface text-on-surface font-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block font-label-md text-label-md text-on-surface mb-1">Phone</label>
+              <input type="tel" id="emp-phone" class="w-full px-3 py-2 border border-border rounded-DEFAULT bg-surface text-on-surface font-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+            </div>
+            <div>
+              <label class="block font-label-md text-label-md text-on-surface mb-1">Role</label>
+              <select id="emp-role" class="w-full px-3 py-2 border border-border rounded-DEFAULT bg-surface text-on-surface font-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+                <option value="employee">Employee</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block font-label-md text-label-md text-on-surface mb-1">Department</label>
+              <select id="emp-dept" class="w-full px-3 py-2 border border-border rounded-DEFAULT bg-surface text-on-surface font-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+                <option value="">— Select —</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-label-md text-label-md text-on-surface mb-1">Designation *</label>
+              <input type="text" id="emp-designation" required class="w-full px-3 py-2 border border-border rounded-DEFAULT bg-surface text-on-surface font-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block font-label-md text-label-md text-on-surface mb-1">Status</label>
+              <select id="emp-status" class="w-full px-3 py-2 border border-border rounded-DEFAULT bg-surface text-on-surface font-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+                <option value="active">Active</option>
+                <option value="on-leave">On Leave</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-label-md text-label-md text-on-surface mb-1">Join Date</label>
+              <input type="date" id="emp-joindate" class="w-full px-3 py-2 border border-border rounded-DEFAULT bg-surface text-on-surface font-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+            </div>
+          </div>
+          <p id="emp-form-error" class="text-error font-body-sm hidden"></p>
+          <button type="submit" id="emp-form-submit" class="w-full bg-[#0F172A] text-white py-2.5 rounded-DEFAULT font-label-md text-label-md hover:bg-[#1E293B] transition-colors">
+            Save Employee
+          </button>
+        </form>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  const modal = document.getElementById('emp-modal');
+  const modalTitle = document.getElementById('emp-modal-title');
+  const modalClose = document.getElementById('emp-modal-close');
+  const empForm = document.getElementById('emp-form');
+  const empEditId = document.getElementById('emp-edit-id');
+  const empFormError = document.getElementById('emp-form-error');
+  const empFormSubmit = document.getElementById('emp-form-submit');
+
+  modalClose.addEventListener('click', () => modal.classList.add('hidden'));
+
+  // ── Load departments ──
+  async function loadDepartments() {
+    try {
+      const res = await fetch(API_BASE + '/api/departments', { headers: authHeaders() });
+      if (handle401(res)) return;
+      if (!res.ok) return;
+      allDepartments = await res.json();
+      const deptSelect = document.getElementById('emp-dept');
+      deptSelect.innerHTML = '<option value="">— Select —</option>';
+      allDepartments.forEach(d => {
+        deptSelect.innerHTML += '<option value="' + d.id + '">' + d.name + '</option>';
+      });
+    } catch (err) {
+      console.error('[Departments]', err);
+    }
+  }
+
+  // ── Load employees ──
+  async function loadEmployees() {
+    try {
+      const search = searchInput ? searchInput.value.trim() : '';
+      let url = API_BASE + '/api/employees';
+      const params = [];
+      if (search) params.push('search=' + encodeURIComponent(search));
+      if (params.length) url += '?' + params.join('&');
+
+      const res = await fetch(url, { headers: authHeaders() });
+      if (handle401(res)) return;
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      allEmployees = await res.json();
+      renderTable();
+    } catch (err) {
+      console.error('[Employees]', err);
+      tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-error">Failed to load employees</td></tr>';
+    }
+  }
+
+  function initials(name) {
+    if (!name) return '??';
+    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  function statusBadge(status) {
+    const map = {
+      'active': 'bg-success/10 text-success',
+      'on-leave': 'bg-warning/10 text-warning',
+      'suspended': 'bg-error/10 text-error'
+    };
+    const cls = map[(status || '').toLowerCase()] || 'bg-surface-variant text-on-surface-variant';
+    const label = (status || 'Unknown').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm text-label-sm ' + cls + '">' + label + '</span>';
+  }
+
+  function renderTable() {
+    if (allEmployees.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-on-surface-variant">No employees found</td></tr>';
+      updatePagination(0);
+      return;
+    }
+
+    tbody.innerHTML = allEmployees.map((emp, i) => {
+      const zebra = i % 2 === 1 ? 'bg-[#F8FAFC]' : '';
+      const actionHtml = canWrite ? `
+        <button class="text-on-surface-variant hover:text-secondary transition-colors p-1 emp-edit-btn" data-id="${emp.id}" title="Edit">
+          <span class="material-symbols-outlined text-[20px]">edit</span>
+        </button>
+        <button class="text-on-surface-variant hover:text-error transition-colors p-1 ml-2 emp-delete-btn" data-id="${emp.id}" data-name="${emp.name}" title="Remove">
+          <span class="material-symbols-outlined text-[20px]">delete</span>
+        </button>` : '';
+
+      return '<tr class="' + zebra + ' hover:bg-surface-bright transition-colors">' +
+        '<td class="px-6 py-4"><div class="flex items-center gap-3">' +
+          '<div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-sm">' + initials(emp.name) + '</div>' +
+          '<span class="font-medium text-on-surface">' + (emp.name || 'Unknown') + '</span>' +
+        '</div></td>' +
+        '<td class="px-6 py-4 text-on-surface-variant font-label-md text-label-md">' + String(emp.id).slice(-4).toUpperCase() + '</td>' +
+        '<td class="px-6 py-4 text-on-surface">' + (emp.department_name || 'N/A') + '</td>' +
+        '<td class="px-6 py-4 text-on-surface-variant">' + (emp.designation || 'N/A') + '</td>' +
+        '<td class="px-6 py-4">' + statusBadge(emp.status) + '</td>' +
+        '<td class="px-6 py-4 text-right">' + actionHtml + '</td>' +
+      '</tr>';
+    }).join('');
+
+    updatePagination(allEmployees.length);
+
+    // Bind edit/delete
+    document.querySelectorAll('.emp-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => openEditModal(btn.dataset.id));
+    });
+    document.querySelectorAll('.emp-delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => deleteEmployee(btn.dataset.id, btn.dataset.name));
+    });
+  }
+
+  function updatePagination(count) {
+    const infoEl = document.querySelector('.p-4.border-t div');
+    if (infoEl) infoEl.textContent = 'Showing 1 to ' + count + ' of ' + count + ' entries';
+  }
+
+  // ── Add employee ──
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      modalTitle.textContent = 'Add New Employee';
+      empEditId.value = '';
+      empForm.reset();
+      empFormError.classList.add('hidden');
+      empFormSubmit.textContent = 'Save Employee';
+      modal.classList.remove('hidden');
+    });
+  }
+
+  // ── Edit employee ──
+  function openEditModal(id) {
+    const emp = allEmployees.find(e => String(e.id) === String(id));
+    if (!emp) return;
+    modalTitle.textContent = 'Edit Employee';
+    empEditId.value = id;
+    document.getElementById('emp-name').value = emp.name || '';
+    document.getElementById('emp-email').value = emp.email || '';
+    document.getElementById('emp-phone').value = emp.phone || '';
+    document.getElementById('emp-role').value = (emp.role || 'employee').toLowerCase();
+    document.getElementById('emp-dept').value = emp.department_id || '';
+    document.getElementById('emp-designation').value = emp.designation || '';
+    document.getElementById('emp-status').value = emp.status || 'active';
+    document.getElementById('emp-joindate').value = emp.join_date ? new Date(emp.join_date).toISOString().split('T')[0] : '';
+    empFormError.classList.add('hidden');
+    empFormSubmit.textContent = 'Update Employee';
+    modal.classList.remove('hidden');
+  }
+
+  // ── Save/Update employee ──
+  empForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    empFormError.classList.add('hidden');
+    empFormSubmit.disabled = true;
+
+    const body = {
+      name: document.getElementById('emp-name').value.trim(),
+      email: document.getElementById('emp-email').value.trim(),
+      phone: document.getElementById('emp-phone').value.trim() || null,
+      role: document.getElementById('emp-role').value,
+      department_id: document.getElementById('emp-dept').value || null,
+      designation: document.getElementById('emp-designation').value.trim(),
+      status: document.getElementById('emp-status').value,
+      join_date: document.getElementById('emp-joindate').value || undefined
+    };
+
+    const editId = empEditId.value;
+    const method = editId ? 'PUT' : 'POST';
+    const url = editId ? API_BASE + '/api/employees/' + editId : API_BASE + '/api/employees';
+
+    try {
+      const res = await fetch(url, {
+        method: method,
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      if (handle401(res)) return;
+      const data = await res.json();
+      if (!res.ok) {
+        empFormError.textContent = data.error || 'Failed to save.';
+        empFormError.classList.remove('hidden');
+        return;
+      }
+      modal.classList.add('hidden');
+      await loadEmployees();
+    } catch (err) {
+      empFormError.textContent = 'Network error.';
+      empFormError.classList.remove('hidden');
+    } finally {
+      empFormSubmit.disabled = false;
+    }
+  });
+
+  // ── Delete employee ──
+  async function deleteEmployee(id, name) {
+    if (!confirm('Are you sure you want to remove ' + (name || 'this employee') + '? This action cannot be undone.')) return;
+    try {
+      const res = await fetch(API_BASE + '/api/employees/' + id, {
+        method: 'DELETE',
+        headers: authHeaders()
+      });
+      if (handle401(res)) return;
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete employee.');
+        return;
+      }
+      await loadEmployees();
+    } catch (err) {
+      alert('Network error while deleting.');
+    }
+  }
+
+  // ── Search ──
+  let searchTimer;
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(loadEmployees, 300);
+    });
+  }
+
+  // ── Boot ──
+  if (!localStorage.getItem('token')) {
+    window.location.href = '/Templates/Login_Page.html';
+  } else {
+    loadDepartments();
+    loadEmployees();
+  }
+})();
+</script>
 
 </body></html>
