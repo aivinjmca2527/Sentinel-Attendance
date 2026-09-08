@@ -185,48 +185,11 @@
           },
         }
       </script>
+<link rel="stylesheet" href="/Templates/shared/styles.css">
 </head>
 <body class="bg-background text-on-background font-body-md min-h-screen flex">
-<!-- SideNavBar -->
-<nav class="bg-surface border-r border-border h-screen w-64 fixed left-0 top-0 flex flex-col py-lg px-md z-50">
-<div class="flex items-center gap-sm mb-xl px-sm">
-<img class="w-8 h-8 rounded-lg object-contain" data-alt="A clean, minimalist logo for a corporate security and attendance application. The logo features a stylized abstract geometric shape representing a shield or an eye, in deep navy blue and vibrant professional blue. The design is sleek, modern, and trustworthy, set against a pristine white background. High resolution vector style graphic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD60wBWN46Wj3xng_W_A_hCAdIxgxbhtHbULpAmQfztTt-Tj9PLO21Bna8ZzoUndOrXcCppMr6PU-3qZw4I-xC80TCR2U9si47cmy1KDW-Wqb108DWHsPPQF-Mq4w9EzAg4F8A0f9o7HJvK91WeHBWbFGfydqlNxZbF9Fwi0YhSiV9-nAk6Gwdp3iEr8Xy-NNJY92f6OfcCrn2DJdEVXg0qO5GsTiOnp8fdasOKmsLTxjWboDZ12T07">
-<div>
-<h1 class="font-headline-md text-headline-md font-bold text-primary">Sentinel</h1>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Attendance Admin</p>
-</div>
-</div>
-<div class="flex-1 overflow-y-auto flex flex-col gap-sm">
-<a class="flex items-center gap-md px-sm py-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors" href="/Admin_Dashboard_Page.html">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
-                Dashboard
-            </a>
-<a class="flex items-center gap-md px-sm py-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors" href="/Daily_Attendnace_Tracking_Page.html">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">calendar_today</span>
-                Attendance
-            </a>
-<a class="flex items-center gap-md px-sm py-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors" href="/Employee_Management_Page.html">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">badge</span>
-                Employees
-            </a>
-<a class="flex items-center gap-md px-sm py-sm bg-surface-container-low text-secondary font-bold border-r-4 border-secondary rounded-l-lg hover:bg-surface-container-low transition-colors opacity-80 duration-150" href="/Leave_Approval_Page.html">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event_busy</span>
-                Leave Requests
-            </a>
-<a class="flex items-center gap-md px-sm py-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors" href="/QR_Generation_Page.html">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">qr_code_2</span>
-                QR Security
-            </a>
-<a class="flex items-center gap-md px-sm py-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors" href="/Security_Reports_Page.html">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">assessment</span>
-                Security Reports
-            </a>
-<a class="flex items-center gap-md px-sm py-sm rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors mt-auto" href="#">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
-                Settings
-            </a>
-</div>
-</nav>
+<!-- Sidebar -->
+<div id="sidebar-container" class="fixed left-0 top-0 z-50"></div>
 <!-- Main Content Area -->
 <div class="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
 <!-- TopNavBar -->
@@ -283,43 +246,16 @@
 </div>
 </div>
 </div>
+<script src="/Templates/shared/auth.js"></script>
+<script src="/Templates/shared/sidebar.js"></script>
 <script>
 /**
  * Leave Approval Page — Frontend Wiring
- * ======================================
- * Connects the static split-view template to the live /api/leave endpoints.
- * - Left panel cards are loaded via GET /api/leave (pending by default).
- * - Clicking a card populates the right-panel details.
- * - Approve / Reject buttons call PUT /api/leave/:id/approve|deny.
- * - Search input filters cards client-side by employee name.
- *
- * Auth token is read from localStorage('token') and sent as
- * Authorization: Bearer <token>.  Dev headers are also sent as
- * a fallback while the auth stub is in place.
  */
 (function () {
   'use strict';
 
-  // ── Config ──────────────────────────────────────────────────────
   const API_BASE = window.location.origin;
-  const TOKEN    = localStorage.getItem('token') || '';
-
-  // Dev-mode fallback headers (remove once real JWT auth is live)
-  const DEV_HEADERS = {
-    'x-user-id':     localStorage.getItem('dev_user_id')     || '',
-    'x-user-role':   localStorage.getItem('dev_user_role')   || 'admin',
-    'x-employee-id': localStorage.getItem('dev_employee_id') || '',
-  };
-
-  function authHeaders() {
-    const h = { 'Content-Type': 'application/json' };
-    if (TOKEN) h['Authorization'] = 'Bearer ' + TOKEN;
-    // Dev fallback
-    if (DEV_HEADERS['x-user-id']) {
-      Object.assign(h, DEV_HEADERS);
-    }
-    return h;
-  }
 
   // ── State ───────────────────────────────────────────────────────
   let allRequests    = [];
@@ -330,16 +266,6 @@
   const detailPanel     = document.querySelector('.flex-1.bg-background.overflow-y-auto.p-lg'); // right panel
   const pendingBadge    = document.querySelector('span.bg-warning\\/10');           // "24 Pending" badge
   const searchInput     = document.querySelector('input[placeholder="Search requests..."]');
-
-  // Right-panel action buttons (Reject first, then Approve in DOM order)
-  const actionButtons   = detailPanel.querySelectorAll('button');
-  let rejectBtn = null;
-  let approveBtn = null;
-  actionButtons.forEach(btn => {
-    const text = btn.textContent.trim();
-    if (text === 'Reject Request')  rejectBtn  = btn;
-    if (text === 'Approve Request') approveBtn = btn;
-  });
 
   // ── Helpers ─────────────────────────────────────────────────────
   function fmtDate(d) {
@@ -396,7 +322,6 @@
       allRequests = await resp.json();
       renderCards(allRequests);
       updateBadge();
-      // Auto-select first if nothing is selected
       if (allRequests.length > 0) {
         if (!selectedId || !allRequests.find(r => r._id === selectedId)) {
           selectRequest(allRequests[0]._id);
@@ -466,7 +391,7 @@
   // ── Select a request & populate right panel ─────────────────────
   function selectRequest(id) {
     selectedId = id;
-    renderCards(filteredRequests());  // re-render to highlight active card
+    renderCards(filteredRequests());
 
     const req = allRequests.find(r => r._id === id);
     if (!req) return;
@@ -479,11 +404,9 @@
     const desig    = emp.designation  || '';
     const days     = daysBetween(req.start_date, req.end_date);
 
-    // Find detail elements and update them
     const detailContent = detailPanel.querySelector('.max-w-4xl');
     if (!detailContent) return;
 
-    // Rebuild the right panel content
     detailContent.innerHTML = `
       <!-- Header Actions -->
       <div class="flex items-center justify-between mb-lg">
@@ -505,7 +428,6 @@
       <!-- Main Content Card -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
         <div class="lg:col-span-2 space-y-lg">
-          <!-- Employee & Leave Reason -->
           <div class="bg-surface border border-border rounded-xl p-lg shadow-sm">
             <div class="flex items-center gap-md mb-lg">
               <div class="w-16 h-16 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center font-bold text-xl border border-border">
@@ -541,7 +463,6 @@
             </div>
           </div>
         </div>
-        <!-- Sidebar Stats -->
         <div class="space-y-lg">
           <div class="bg-surface border border-border rounded-xl p-lg shadow-sm">
             <h5 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-semibold mb-md">Request Info</h5>
@@ -570,7 +491,6 @@
       </div>
     `;
 
-    // Re-bind action buttons
     const newRejectBtn  = detailContent.querySelector('#btn-reject');
     const newApproveBtn = detailContent.querySelector('#btn-approve');
     if (newRejectBtn)  newRejectBtn.addEventListener('click',  () => handleDeny(req._id));
@@ -614,7 +534,6 @@
 
   async function handleDeny(id) {
     const reason = prompt('Denial reason (optional):');
-    // If user cancelled the prompt, abort
     if (reason === null) return;
     try {
       const resp = await fetch(API_BASE + '/api/leave/' + id + '/deny', {

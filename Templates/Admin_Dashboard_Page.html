@@ -57,30 +57,7 @@
       }
     }
   </script>
-  <style data-purpose="custom-utilities">
-    body {
-      background-color: #f7f9fb;
-      color: #0f172a;
-    }
-
-    .nav-item {
-      transition: all 0.2s ease;
-    }
-
-    .nav-item:hover {
-      background-color: #f2f4f6;
-    }
-
-    .nav-item.active {
-      background-color: #eef2ff;
-      color: #4f46e5;
-      border-right: 4px solid #4f46e5;
-    }
-
-    .card-shadow {
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-    }
-  </style>
+  <link rel="stylesheet" href="/Templates/shared/styles.css">
   <link
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
     rel="stylesheet">
@@ -88,56 +65,7 @@
 
 <body class="flex h-screen overflow-hidden font-sans antialiased text-primary">
   <!-- BEGIN: Sidebar -->
-  <aside
-    class="w-64 bg-surface border-r border-outline-variant flex flex-col justify-between h-full flex-shrink-0 z-10 hidden md:flex">
-    <div>
-      <div class="p-6 pb-4">
-        <div class="flex items-center gap-3 mb-6">
-          <div
-            class="w-10 h-10 rounded bg-surface-container flex items-center justify-center border border-outline-variant">
-            <i class="fa-solid fa-id-badge text-primary text-xl"></i>
-          </div>
-          <div>
-            <h1 class="font-bold text-lg leading-tight">Sentinel Admin</h1>
-            <p class="text-xs text-secondary">System Control</p>
-          </div>
-        </div>
-        <button
-          class="w-full bg-primary hover:bg-primary-container text-on-primary font-medium py-2.5 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
-          <i class="fa-solid fa-plus"></i> Generate QR
-        </button>
-      </div>
-      <nav class="mt-2 px-3 space-y-1"><a
-          class="nav-item active flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium"
-          href="/Templates/Admin_Dashboard_Page.html"><span
-            class="material-symbols-outlined w-5 text-center">dashboard</span> Dashboard</a><a
-          class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-secondary"
-          href="/Templates/Daily_Attendnace_Tracking_Page.html"><span
-            class="material-symbols-outlined w-5 text-center">history</span>
-          Attendance</a><a
-          class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-secondary"
-          href="/Templates/Employee_Management_Page.html"><span
-            class="material-symbols-outlined w-5 text-center">groups</span> Employees</a><a
-          class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-secondary"
-          href="/Templates/Leave_Approval_Page.html"><span
-            class="material-symbols-outlined w-5 text-center">event_busy</span> Leave Requests</a><a
-          class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-secondary"
-          href="/Templates/QR_Generation_Page.html"><span
-            class="material-symbols-outlined w-5 text-center">qr_code_2</span>
-          QR Security</a><a
-          class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-secondary"
-          href="/Templates/Security_Reports_Page.html"><span
-            class="material-symbols-outlined w-5 text-center">verified_user</span> Security Reports</a><a
-          class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-secondary"
-          href="/Templates/Admin_Settings_Page.html"><span
-            class="material-symbols-outlined w-5 text-center">settings</span> Settings</a></nav>
-    </div>
-    <div class="p-4 border-t border-outline-variant space-y-1"><a
-        class="nav-item flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-secondary" href="#"><span
-          class="material-symbols-outlined w-5 text-center">support_agent</span> Support</a><a
-        class="nav-item flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-secondary" href="#"><span
-          class="material-symbols-outlined w-5 text-center">logout</span> Sign Out</a></div>
-  </aside>
+  <div id="sidebar-container"></div>
   <!-- END: Sidebar -->
   <!-- BEGIN: Main Content Area -->
   <main class="flex-1 flex flex-col h-full overflow-hidden bg-surface-bright">
@@ -303,13 +231,10 @@
     <!-- END: Dashboard Content -->
   </main>
   <!-- END: Main Content Area -->
+  <script src="/Templates/shared/auth.js"></script>
+  <script src="/Templates/shared/sidebar.js"></script>
   <script data-purpose="chart-rendering">
     let currentRange = '7d';
-
-    function authHeaders(extra = {}) {
-      const token = localStorage.getItem('token');
-      return { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...extra };
-    }
 
     if (!localStorage.getItem('token')) {
       window.location.href = '/Templates/Login_Page.html';

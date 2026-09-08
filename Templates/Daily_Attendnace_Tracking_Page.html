@@ -106,52 +106,13 @@
             }
         }
     </script>
+<link rel="stylesheet" href="/Templates/shared/styles.css">
 </head>
 <body class="bg-background text-on-background font-body-md h-screen overflow-hidden flex">
-<!-- SideNavBar -->
-<aside class="h-screen w-64 fixed left-0 top-0 border-r border-border dark:border-outline-variant bg-surface dark:bg-surface-container flex flex-col py-lg px-md z-50">
-<div class="mb-xl flex items-center gap-sm px-xs">
-<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">security</span>
-<div>
-<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-on-primary-fixed leading-tight">Sentinel</h1>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Attendance Admin</p>
-</div>
-</div>
-<nav class="flex-1 flex flex-col gap-sm">
-<a class="flex items-center gap-md px-sm py-xs rounded-lg hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors text-on-surface-variant dark:text-on-surface-variant font-medium" href="#">
-<span class="material-symbols-outlined">dashboard</span>
-                Dashboard
-            </a>
-<a class="flex items-center gap-md px-sm py-xs rounded-lg bg-surface-container-low dark:bg-surface-container-high transition-colors text-secondary dark:text-secondary-fixed-dim font-bold border-l-4 border-secondary ml-[-16px] pl-[28px]" href="#">
-<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
-                Attendance
-            </a>
-<a class="flex items-center gap-md px-sm py-xs rounded-lg hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors text-on-surface-variant dark:text-on-surface-variant font-medium" href="#">
-<span class="material-symbols-outlined">badge</span>
-                Employees
-            </a>
-<a class="flex items-center gap-md px-sm py-xs rounded-lg hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors text-on-surface-variant dark:text-on-surface-variant font-medium" href="#">
-<span class="material-symbols-outlined">event_busy</span>
-                Leave Requests
-            </a>
-<a class="flex items-center gap-md px-sm py-xs rounded-lg hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors text-on-surface-variant dark:text-on-surface-variant font-medium" href="#">
-<span class="material-symbols-outlined">qr_code_2</span>
-                QR Security
-            </a>
-<a class="flex items-center gap-md px-sm py-xs rounded-lg hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors text-on-surface-variant dark:text-on-surface-variant font-medium" href="#">
-<span class="material-symbols-outlined">assessment</span>
-                Security Reports
-            </a>
-</nav>
-<div class="mt-auto">
-<a class="flex items-center gap-md px-sm py-xs rounded-lg hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors text-on-surface-variant dark:text-on-surface-variant font-medium" href="#">
-<span class="material-symbols-outlined">settings</span>
-                Settings
-            </a>
-</div>
-</aside>
+<!-- Sidebar -->
+<div id="sidebar-container"></div>
 <!-- Main Content Area -->
-<main class="ml-64 flex-1 flex flex-col h-screen overflow-hidden">
+<main class="flex-1 flex flex-col h-screen overflow-hidden">
 <!-- TopNavBar -->
 <header class="bg-surface dark:bg-surface-container border-b border-border dark:border-outline-variant docked full-width top-0 sticky z-40 flex justify-between items-center px-margin-desktop py-base h-[64px]">
 <div class="flex items-center gap-md flex-1">
@@ -168,7 +129,7 @@
 <span class="material-symbols-outlined">help_outline</span>
 </button>
 <div class="h-8 w-8 rounded-full bg-primary-container overflow-hidden border border-border cursor-pointer">
-<img alt="Admin User Profile" class="w-full h-full object-cover" data-alt="Professional corporate headshot of an administrator in a modern office environment, clear bright lighting, neutral background, looking approachable yet secure." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsMSV8XExZwcmDCX1-R7HCp-p3DvQ6uLRBV7rPeBCls0mIHS0evWmLFL027uMnGryHEbdpg0c-Y_WKzaOBMU6jN9jWejgtpg431QGMPHJfCo1kIwDs2Ooqy7Pp2BLlFyPx0cIx0IDmqEZhFhhKUWbwq_M_xFhiV1crBrIPvkZEvBB_ThYxI4RtLCdqdFoTz43NwJLQ3ak-4hewmJ1mfcmYhmNin7PZDqqNme-ZCMF1h0ZwvkvPaxQa">
+<img alt="Admin User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsMSV8XExZwcmDCX1-R7HCp-p3DvQ6uLRBV7rPeBCls0mIHS0evWmLFL027uMnGryHEbdpg0c-Y_WKzaOBMU6jN9jWejgtpg431QGMPHJfCo1kIwDs2Ooqy7Pp2BLlFyPx0cIx0IDmqEZhFhhKUWbwq_M_xFhiV1crBrIPvkZEvBB_ThYxI4RtLCdqdFoTz43NwJLQ3ak-4hewmJ1mfcmYhmNin7PZDqqNme-ZCMF1h0ZwvkvPaxQa">
 </div>
 </div>
 </header>
@@ -199,7 +160,7 @@
 <span class="material-symbols-outlined text-on-surface-variant opacity-50">group</span>
 </div>
 <div>
-<span class="font-headline-lg text-headline-lg text-primary">1,248</span>
+<span id="stat-total-workforce" class="font-headline-lg text-headline-lg text-primary">—</span>
 </div>
 </div>
 <div class="bg-surface border border-border rounded-xl p-md flex flex-col justify-between h-32 shadow-[0_2px_4px_rgba(0,0,0,0.02)] border-l-4 border-l-success">
@@ -208,8 +169,7 @@
 <span class="material-symbols-outlined text-success opacity-80">check_circle</span>
 </div>
 <div class="flex items-end gap-2">
-<span class="font-headline-lg text-headline-lg text-primary">1,102</span>
-<span class="font-body-sm text-body-sm text-success mb-2 bg-success/10 px-2 py-0.5 rounded-full">+2% vs ytd</span>
+<span id="stat-present" class="font-headline-lg text-headline-lg text-primary">—</span>
 </div>
 </div>
 <div class="bg-surface border border-border rounded-xl p-md flex flex-col justify-between h-32 shadow-[0_2px_4px_rgba(0,0,0,0.02)] border-l-4 border-l-warning">
@@ -218,7 +178,7 @@
 <span class="material-symbols-outlined text-warning opacity-80">schedule</span>
 </div>
 <div class="flex items-end gap-2">
-<span class="font-headline-lg text-headline-lg text-primary">84</span>
+<span id="stat-late" class="font-headline-lg text-headline-lg text-primary">—</span>
 <span class="font-body-sm text-body-sm text-on-surface-variant mb-2">employees</span>
 </div>
 </div>
@@ -228,7 +188,7 @@
 <span class="material-symbols-outlined text-error opacity-80">cancel</span>
 </div>
 <div class="flex items-end gap-2">
-<span class="font-headline-lg text-headline-lg text-primary">62</span>
+<span id="stat-absent" class="font-headline-lg text-headline-lg text-primary">—</span>
 <span class="font-body-sm text-body-sm text-on-surface-variant mb-2">employees</span>
 </div>
 </div>
@@ -296,17 +256,11 @@
 </div>
 </div>
 </main>
+<script src="/Templates/shared/auth.js"></script>
+<script src="/Templates/shared/sidebar.js"></script>
 <script>
 (function() {
   var API_BASE = window.location.origin;
-
-  function authHeaders(extra) {
-    var token = localStorage.getItem('token');
-    var h = { 'Content-Type': 'application/json' };
-    if (token) h['Authorization'] = 'Bearer ' + token;
-    if (extra) { for (var k in extra) h[k] = extra[k]; }
-    return h;
-  }
 
   if (!localStorage.getItem('token')) {
     window.location.href = '/Templates/Login_Page.html';
@@ -322,12 +276,57 @@
   var refreshBtn = document.getElementById('attendance-refresh-btn');
   var paginationInfo = document.getElementById('attendance-pagination-info');
 
+  // Stat card elements
+  var statTotalEl = document.getElementById('stat-total-workforce');
+  var statPresentEl = document.getElementById('stat-present');
+  var statLateEl = document.getElementById('stat-late');
+  var statAbsentEl = document.getElementById('stat-absent');
+
   // Set date picker to today
   var today = new Date();
   datePicker.value = today.toISOString().split('T')[0];
   dateDisplay.textContent = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   var allRecords = [];
+  var totalWorkforce = 0;
+
+  // Fetch total workforce count (once on load)
+  function fetchWorkforceCount() {
+    fetch(API_BASE + '/api/employees', { headers: authHeaders() })
+      .then(function(res) {
+        if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return; }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(data) {
+        if (!data) return;
+        totalWorkforce = Array.isArray(data) ? data.length : 0;
+        if (statTotalEl) statTotalEl.textContent = totalWorkforce.toLocaleString();
+        updateStatCards();
+      })
+      .catch(function(err) {
+        console.error('[Workforce] Fetch error:', err.message);
+        if (statTotalEl) statTotalEl.textContent = '—';
+      });
+  }
+
+  function updateStatCards() {
+    // Present = records with check_in_time set (on-time, late, early-leave, incomplete)
+    var present = 0;
+    var late = 0;
+    for (var i = 0; i < allRecords.length; i++) {
+      var r = allRecords[i];
+      if (r.check_in_time) {
+        present++;
+        if (r.status === 'late') late++;
+      }
+    }
+    var absent = Math.max(0, totalWorkforce - present);
+
+    if (statPresentEl) statPresentEl.textContent = present.toLocaleString();
+    if (statLateEl) statLateEl.textContent = late.toLocaleString();
+    if (statAbsentEl) statAbsentEl.textContent = absent.toLocaleString();
+  }
 
   function fetchAttendance() {
     var dateVal = datePicker.value;
@@ -343,6 +342,7 @@
       .then(function(data) {
         if (!data) return;
         allRecords = data;
+        updateStatCards();
         renderTable();
       })
       .catch(function(err) {
@@ -438,6 +438,7 @@
   refreshBtn.addEventListener('click', fetchAttendance);
 
   // Initial load
+  fetchWorkforceCount();
   fetchAttendance();
 })();
 </script>

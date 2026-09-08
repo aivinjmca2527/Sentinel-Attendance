@@ -10,19 +10,22 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const MONGO_URI = process.env.MONGO_URI || '';
 
 async function connectDB() {
+  let uri = MONGO_URI;
+  if (!uri || uri.includes('replace-with')) {
+    const mongod = await MongoMemoryServer.create();
+    uri = mongod.getUri();
+    console.log('[DB] Using In-Memory MongoDB');
+  }
+  
   try {
-    let uri = MONGO_URI;
-    if (!uri || uri.includes('replace-with')) {
-        const mongod = await MongoMemoryServer.create();
-        uri = mongod.getUri();
-        console.log('[DB] Using In-Memory MongoDB');
-    }
-    
-    await mongoose.connect(uri);
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 4000 });
     console.log('[DB] MongoDB connected');
   } catch (err) {
-    console.error('[DB] MongoDB connection error:', err);
-    process.exit(1);
+    console.warn('[DB] Could not connect to Atlas (' + err.message + '). Falling back to in-memory MongoDB for local testing.');
+    const mongod = await MongoMemoryServer.create();
+    uri = mongod.getUri();
+    await mongoose.connect(uri);
+    console.log('[DB] Using In-Memory MongoDB');
   }
 }
 

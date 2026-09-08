@@ -5,7 +5,6 @@
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Hanken+Grotesk:wght@600;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
 <script id="tailwind-config">
       tailwind.config = {
         darkMode: "class",
@@ -107,29 +106,11 @@
         },
       }
     </script>
-<style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #E2E8F0;
-            border-radius: 10px;
-        }
-    </style>
+<link rel="stylesheet" href="/Templates/shared/styles.css">
 </head>
 <body class="bg-background text-on-background min-h-screen flex overflow-hidden">
-<!-- SideNavBar Anchor -->
-<aside class="w-64 h-screen fixed left-0 top-0 bg-surface-bright border-r border-outline-variant p-md flex flex-col z-50">
-<div class="mb-xl px-sm"><h1 class="font-headline-sm text-headline-sm font-bold text-primary">Sentinel Admin</h1><p class="text-on-surface-variant font-body-md text-body-md">System Control</p></div>
-<nav class="flex-1 flex flex-col gap-xs"><a class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-all cursor-pointer active:scale-95" href="#"><span class="material-symbols-outlined">dashboard</span><span class="font-body-md text-body-md">Dashboard</span></a><a class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-all cursor-pointer active:scale-95" href="#"><span class="material-symbols-outlined">history</span><span class="font-body-md text-body-md">Attendance</span></a><a class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-all cursor-pointer active:scale-95" href="#"><span class="material-symbols-outlined">groups</span><span class="font-body-md text-body-md">Employees</span></a><a class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-all cursor-pointer active:scale-95" href="#"><span class="material-symbols-outlined">event_busy</span><span class="font-body-md text-body-md">Leave Requests</span></a><a class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-all cursor-pointer active:scale-95" href="#"><span class="material-symbols-outlined">qr_code_2</span><span class="font-body-md text-body-md">QR Security</span></a><a class="flex items-center gap-sm px-md py-sm rounded-lg bg-secondary-container text-on-secondary-container font-semibold transition-all cursor-pointer active:scale-95" href="#"><span class="material-symbols-outlined">verified_user</span><span class="font-body-md text-body-md">Security Reports</span></a><a class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-all cursor-pointer active:scale-95" href="#"><span class="material-symbols-outlined">settings</span><span class="font-body-md text-body-md">Settings</span></a></nav>
-<div class="mt-auto flex flex-col gap-xs pt-md border-t border-outline-variant"><button class="bg-primary text-on-primary py-sm px-md rounded-lg font-body-md mb-md hover:opacity-90 active:scale-95 transition-all">Regenerate Keys</button><a class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-all" href="#"><span class="material-symbols-outlined">support_agent</span><span class="font-body-md text-body-md">Support</span></a><a class="flex items-center gap-sm px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-all" href="#"><span class="material-symbols-outlined">logout</span><span class="font-body-md text-body-md">Sign Out</span></a></div>
-</aside>
+<!-- Sidebar -->
+<div id="sidebar-container" class="fixed left-0 top-0 z-50"></div>
 <!-- Main Content Area -->
 <main class="ml-64 flex-1 flex flex-col h-screen overflow-hidden">
 <!-- TopNavBar Anchor -->
@@ -153,7 +134,7 @@
 <span class="material-symbols-outlined text-on-surface-variant">settings</span>
 </button>
 <div class="h-8 w-8 rounded-full bg-primary-container flex items-center justify-center overflow-hidden border border-outline-variant">
-<img class="w-full h-full object-cover" data-alt="A professional headshot of a senior system administrator in a corporate environment. The image has soft studio lighting and a clean, high-end professional aesthetic with a neutral background, conveying trust and technical authority." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6T14KlehFP3RKdOSP9XZ2FF_bKn9xHdWjiD-y6iubDrqnu72pNGKDJH_WCg8hL9cl15QsdB2XYeTNQ9xlaQhN82KokDVbGXAIs8UHmvxV77tKgAIPCGuCYzVCJcOb7cgSjCptLuJuCOTvaGbe1w0XOmbdMEb2JZrtJRA3cdA7kU3oCfqGfohlqiqJSw7DB9NLHZwtroGXry5M5mWNNwzdB8SfuA3CFpU1IxlWoh8MgIBZu_9uvrgW">
+<img class="w-full h-full object-cover" alt="Admin profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6T14KlehFP3RKdOSP9XZ2FF_bKn9xHdWjiD-y6iubDrqnu72pNGKDJH_WCg8hL9cl15QsdB2XYeTNQ9xlaQhN82KokDVbGXAIs8UHmvxV77tKgAIPCGuCYzVCJcOb7cgSjCptLuJuCOTvaGbe1w0XOmbdMEb2JZrtJRA3cdA7kU3oCfqGfohlqiqJSw7DB9NLHZwtroGXry5M5mWNNwzdB8SfuA3CFpU1IxlWoh8MgIBZu_9uvrgW">
 </div>
 </div>
 </header>
@@ -197,53 +178,49 @@
 </div>
 <!-- Top Row Stats Grid -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-lg mb-xl">
-<!-- Stat Card 1 -->
-<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<!-- Stat Card 1: Failed Scans -->
+<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow" title="Not yet implemented — no failed-scan logging exists in the backend">
 <div class="flex justify-between items-start mb-sm">
 <div class="p-sm bg-error-container rounded-lg">
 <span class="material-symbols-outlined text-error">scan_delete</span>
 </div>
-<span class="text-error font-label-md bg-error-container px-sm py-0.5 rounded flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px]">arrow_upward</span> 12%
-                        </span>
 </div>
 <h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">Failed Scans (24h)</h3>
-<p class="text-headline-md font-headline-md text-on-surface">1,284</p>
+<p class="text-headline-md font-headline-md text-on-surface-variant">N/A</p>
+<p class="text-body-sm text-on-surface-variant mt-xs italic">Not yet implemented</p>
 </div>
-<!-- Stat Card 2 -->
-<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<!-- Stat Card 2: Anomalous Locations -->
+<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow" title="Not yet implemented — no anomaly detection exists in the backend">
 <div class="flex justify-between items-start mb-sm">
 <div class="p-sm bg-secondary-container bg-opacity-10 rounded-lg">
 <span class="material-symbols-outlined text-secondary">location_off</span>
 </div>
-<span class="text-success font-label-md bg-success bg-opacity-10 px-sm py-0.5 rounded flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px]">arrow_downward</span> 4%
-                        </span>
 </div>
 <h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">Anomalous Locations</h3>
-<p class="text-headline-md font-headline-md text-on-surface">42</p>
+<p class="text-headline-md font-headline-md text-on-surface-variant">N/A</p>
+<p class="text-body-sm text-on-surface-variant mt-xs italic">Not yet implemented</p>
 </div>
-<!-- Stat Card 3 -->
-<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<!-- Stat Card 3: System Uptime -->
+<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow" title="Not yet implemented — no uptime monitoring exists in the backend">
 <div class="flex justify-between items-start mb-sm">
 <div class="p-sm bg-success bg-opacity-10 rounded-lg">
 <span class="material-symbols-outlined text-success">dns</span>
 </div>
-<span class="text-on-surface-variant font-label-md bg-surface-container-low px-sm py-0.5 rounded">Stable</span>
 </div>
 <h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">System Uptime</h3>
-<p class="text-headline-md font-headline-md text-on-surface">99.98%</p>
+<p class="text-headline-md font-headline-md text-on-surface-variant">—</p>
+<p class="text-body-sm text-on-surface-variant mt-xs italic">Not yet implemented</p>
 </div>
-<!-- Stat Card 4 -->
-<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<!-- Stat Card 4: Security Alerts -->
+<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow" title="Not yet implemented — no alerts system exists in the backend">
 <div class="flex justify-between items-start mb-sm">
 <div class="p-sm bg-warning bg-opacity-10 rounded-lg">
 <span class="material-symbols-outlined text-warning">security</span>
 </div>
-<span class="text-warning font-label-md bg-warning bg-opacity-10 px-sm py-0.5 rounded">8 Pending</span>
 </div>
 <h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">Security Alerts</h3>
-<p class="text-headline-md font-headline-md text-on-surface">14</p>
+<p class="text-headline-md font-headline-md text-on-surface-variant">N/A</p>
+<p class="text-body-sm text-on-surface-variant mt-xs italic">Not yet implemented</p>
 </div>
 </div>
 <!-- Layout Grid: Audit Trail & Insights -->
@@ -269,95 +246,12 @@
 </tr>
 </thead>
 <tbody class="divide-y divide-border">
-<!-- Row 1 -->
-<tr class="hover:bg-surface-container-lowest transition-colors">
-<td class="px-lg py-md text-body-md font-label-md">2023-10-19 14:23:01</td>
-<td class="px-lg py-md">
-<div class="flex items-center gap-sm">
-<span class="material-symbols-outlined text-outline">vpn_key</span>
-<span class="text-body-md">QR Key Regeneration</span>
-</div>
-</td>
-<td class="px-lg py-md text-body-md">Admin_SarahW</td>
-<td class="px-lg py-md">
-<span class="px-sm py-1 rounded-full text-success bg-success bg-opacity-10 font-label-md">Success</span>
-</td>
-</tr>
-<!-- Row 2 -->
-<tr class="hover:bg-surface-container-lowest transition-colors bg-surface-container-low/30">
-<td class="px-lg py-md text-body-md font-label-md">2023-10-19 14:18:45</td>
-<td class="px-lg py-md">
-<div class="flex items-center gap-sm">
-<span class="material-symbols-outlined text-error">scan_delete</span>
-<span class="text-body-md">Failed Scan Attempt</span>
-</div>
-</td>
-<td class="px-lg py-md text-body-md">Kiosk_Lobby_01</td>
-<td class="px-lg py-md">
-<span class="px-sm py-1 rounded-full text-error bg-error bg-opacity-10 font-label-md">Critical</span>
-</td>
-</tr>
-<!-- Row 3 -->
-<tr class="hover:bg-surface-container-lowest transition-colors">
-<td class="px-lg py-md text-body-md font-label-md">2023-10-19 13:45:12</td>
-<td class="px-lg py-md">
-<div class="flex items-center gap-sm">
-<span class="material-symbols-outlined text-warning">location_on</span>
-<span class="text-body-md">Geolocation Override</span>
-</div>
-</td>
-<td class="px-lg py-md text-body-md">Emp_4492 (Mobile)</td>
-<td class="px-lg py-md">
-<span class="px-sm py-1 rounded-full text-warning bg-warning bg-opacity-10 font-label-md">Warning</span>
-</td>
-</tr>
-<!-- Row 4 -->
-<tr class="hover:bg-surface-container-lowest transition-colors bg-surface-container-low/30">
-<td class="px-lg py-md text-body-md font-label-md">2023-10-19 12:59:33</td>
-<td class="px-lg py-md">
-<div class="flex items-center gap-sm">
-<span class="material-symbols-outlined text-outline">login</span>
-<span class="text-body-md">Admin Login</span>
-</div>
-</td>
-<td class="px-lg py-md text-body-md">Admin_MarcusL</td>
-<td class="px-lg py-md">
-<span class="px-sm py-1 rounded-full text-success bg-success bg-opacity-10 font-label-md">Success</span>
-</td>
-</tr>
-<!-- Row 5 -->
-<tr class="hover:bg-surface-container-lowest transition-colors">
-<td class="px-lg py-md text-body-md font-label-md">2023-10-19 11:20:00</td>
-<td class="px-lg py-md">
-<div class="flex items-center gap-sm">
-<span class="material-symbols-outlined text-error">dangerous</span>
-<span class="text-body-md">Unauthorized API Access</span>
-</div>
-</td>
-<td class="px-lg py-md text-body-md">Unknown_IP_192.x.x</td>
-<td class="px-lg py-md">
-<span class="px-sm py-1 rounded-full text-error bg-error bg-opacity-10 font-label-md">Critical</span>
-</td>
-</tr>
-<!-- Row 6 -->
-<tr class="hover:bg-surface-container-lowest transition-colors bg-surface-container-low/30">
-<td class="px-lg py-md text-body-md font-label-md">2023-10-19 10:05:44</td>
-<td class="px-lg py-md">
-<div class="flex items-center gap-sm">
-<span class="material-symbols-outlined text-outline">settings_backup_restore</span>
-<span class="text-body-md">Database Backup</span>
-</div>
-</td>
-<td class="px-lg py-md text-body-md">System_Cron</td>
-<td class="px-lg py-md">
-<span class="px-sm py-1 rounded-full text-success bg-success bg-opacity-10 font-label-md">Success</span>
-</td>
-</tr>
+<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">Loading audit trail...</td></tr>
 </tbody>
 </table>
 </div>
 <div class="p-md border-t border-border flex justify-between items-center bg-surface-container-lowest">
-<span class="text-body-sm text-on-surface-variant">Showing 6 of 1,248 security events</span>
+<span class="text-body-sm text-on-surface-variant">Showing 0 security events</span>
 <div class="flex gap-sm">
 <button class="p-xs border border-border rounded-lg hover:bg-surface-container-low disabled:opacity-50" disabled="">
 <span class="material-symbols-outlined">chevron_left</span>
@@ -411,30 +305,24 @@
 </div>
 </div>
 </div>
-<!-- Small Decorative Graph or Icon Background -->
+<!-- Decorative Background -->
 <div class="absolute -bottom-8 -right-8 opacity-[0.03] pointer-events-none">
 <span class="material-symbols-outlined text-[200px]">verified_user</span>
 </div>
 </div>
-<!-- System Health Snapshot -->
-
 </div>
 </div>
 </div>
 </main>
-<!-- FAB for Critical Actions -->
+<!-- FAB -->
 <div class="fixed bottom-lg right-lg flex flex-col gap-md items-end">
-
 </div>
-<!-- Micro-interaction Script -->
+<script src="/Templates/shared/auth.js"></script>
+<script src="/Templates/shared/sidebar.js"></script>
 <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // ── Auth ──
-            function authHeaders(extra = {}) {
-                const token = localStorage.getItem('token');
-                return { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...extra };
-            }
-            function handle401(res) {
+            // ── Auth ── (handle401 extended with 403 logic specific to this page)
+            function handle401Security(res) {
                 if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return true; }
                 if (res.status === 403) {
                     document.querySelector('.flex-1.overflow-y-auto').innerHTML = '<div class="flex items-center justify-center h-full"><div class="text-center"><span class="material-symbols-outlined text-6xl text-error opacity-30 mb-4">lock</span><h2 class="font-headline-sm text-headline-sm text-primary mb-2">Access Denied</h2><p class="text-on-surface-variant">You do not have permission to view security reports.</p></div></div>';
@@ -448,7 +336,7 @@
                 return;
             }
 
-            // Keep harmless UI polish: interactive table rows
+            // Interactive table rows
             function bindRowClicks() {
                 const rows = document.querySelectorAll('tbody tr');
                 rows.forEach(row => {
@@ -488,17 +376,13 @@
                 }
             }
 
-            // Initialize default label
             updateLabel();
 
-            // Toggle date picker dropdown
             if (datePickerBtn && datePickerDropdown) {
                 datePickerBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     datePickerDropdown.classList.toggle('hidden');
                 });
-
-                // Close dropdown on outside click
                 document.addEventListener('click', (e) => {
                     if (!datePickerDropdown.contains(e.target) && !datePickerBtn.contains(e.target)) {
                         datePickerDropdown.classList.add('hidden');
@@ -506,7 +390,6 @@
                 });
             }
 
-            // Handle preset range buttons
             presetButtons.forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -537,7 +420,6 @@
                 });
             });
 
-            // Handle custom range input
             if (applyCustomBtn && customStartInput && customEndInput) {
                 applyCustomBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -572,7 +454,7 @@
                     const res = await fetch(`/api/reports/organisation?format=json&startDate=${startStr}&endDate=${endStr}`, {
                         headers: authHeaders()
                     });
-                    if (handle401(res)) return;
+                    if (handle401Security(res)) return;
                     if (!res.ok) throw new Error('HTTP ' + res.status);
                     const result = await res.json();
                     renderReport(result);
@@ -585,19 +467,6 @@
             function renderReport(result) {
                 const tbl = document.querySelector('table tbody');
                 if (!tbl) return;
-
-                // Update stat cards from summary
-                if (result.summary) {
-                    const statCards = document.querySelectorAll('.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-4 > div');
-                    if (statCards[0]) {
-                        const val = statCards[0].querySelector('.text-headline-md');
-                        if (val) val.textContent = (result.summary.total_late + result.summary.total_incomplete).toLocaleString();
-                    }
-                    if (statCards[3]) {
-                        const val = statCards[3].querySelector('.text-headline-md');
-                        if (val) val.textContent = (result.summary.total_late || 0).toLocaleString();
-                    }
-                }
 
                 // Update event count
                 const eventCount = document.querySelector('.p-md.border-t span');
@@ -642,7 +511,7 @@
                 bindRowClicks();
             }
 
-            // Handle Export Report Button Click — CSV download with auth
+            // Handle Export Report Button Click
             if (exportBtn) {
                 exportBtn.addEventListener('click', async () => {
                     const startStr = toISODate(selectedStart);
@@ -651,7 +520,7 @@
                         const res = await fetch(`/api/reports/organisation?format=csv&startDate=${startStr}&endDate=${endStr}`, {
                             headers: authHeaders()
                         });
-                        if (handle401(res)) return;
+                        if (handle401Security(res)) return;
                         if (!res.ok) throw new Error('HTTP ' + res.status);
                         const blob = await res.blob();
                         const url = URL.createObjectURL(blob);
@@ -673,8 +542,4 @@
             fetchReport();
         });
     </script>
-
-
-
-
 </body></html>

@@ -1,0 +1,61 @@
+<!-- Sidebar fragment — canonical source: Admin_Dashboard_Page.html -->
+<!-- Injected by sidebar.js into #sidebar-container -->
+<aside
+  class="w-64 bg-surface border-r border-outline-variant flex flex-col justify-between h-full flex-shrink-0 z-10 hidden md:flex">
+  <div>
+    <div class="p-6 pb-4">
+      <div class="flex items-center gap-3 mb-6">
+        <div
+          class="w-10 h-10 rounded bg-surface-container flex items-center justify-center border border-outline-variant">
+          <i class="fa-solid fa-id-badge sidebar-brand-icon text-xl"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight text-primary">Sentinel Admin</h1>
+          <p class="text-xs sidebar-subtitle">System Control</p>
+        </div>
+      </div>
+      <button onclick="window.location.href='/Templates/QR_Generation_Page.html'"
+        class="w-full sidebar-btn font-medium py-2.5 px-4 rounded-md transition-colors flex items-center justify-center gap-2">
+        <i class="fa-solid fa-plus"></i> Generate QR
+      </button>
+    </div>
+    <nav class="mt-2 px-3 space-y-1">
+      <a class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium"
+        data-page="Admin_Dashboard_Page" href="/Templates/Admin_Dashboard_Page.html">
+        <span class="material-symbols-outlined w-5 text-center">dashboard</span> Dashboard
+      </a>
+      <a class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium"
+        data-page="Daily_Attendnace_Tracking_Page" href="/Templates/Daily_Attendnace_Tracking_Page.html">
+        <span class="material-symbols-outlined w-5 text-center">history</span> Attendance
+      </a>
+      <a class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium"
+        data-page="Employee_Management_Page" href="/Templates/Employee_Management_Page.html">
+        <span class="material-symbols-outlined w-5 text-center">groups</span> Employees
+      </a>
+      <a class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium"
+        data-page="Leave_Approval_Page" href="/Templates/Leave_Approval_Page.html">
+        <span class="material-symbols-outlined w-5 text-center">event_busy</span> Leave Requests
+      </a>
+      <a class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium"
+        data-page="QR_Generation_Page" href="/Templates/QR_Generation_Page.html">
+        <span class="material-symbols-outlined w-5 text-center">qr_code_2</span> QR Security
+      </a>
+      <a class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium"
+        data-page="Security_Reports_Page" href="/Templates/Security_Reports_Page.html">
+        <span class="material-symbols-outlined w-5 text-center">verified_user</span> Security Reports
+      </a>
+      <a class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium"
+        data-page="Settings" href="#">
+        <span class="material-symbols-outlined w-5 text-center">settings</span> Settings
+      </a>
+    </nav>
+  </div>
+  <div class="p-4 border-t border-outline-variant space-y-1">
+    <a class="nav-item flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium" href="#">
+      <span class="material-symbols-outlined w-5 text-center">support_agent</span> Support
+    </a>
+    <a id="sidebar-sign-out" class="nav-item flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium" href="#">
+      <span class="material-symbols-outlined w-5 text-center">logout</span> Sign Out
+    </a>
+  </div>
+</aside>

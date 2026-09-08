@@ -394,7 +394,23 @@ step before `main` is fully integrated.**
 
 ---
 
-## 11. What to Upload in the New Chat
+## 12. Post-Merge Frontend Polish & Testing Mode (Completed)
+
+- **Navbar / Sidebar Consistency (Reference: Admin Dashboard):**
+  - Standardized `.nav-item` inactive link colors to `#475569` (dark slate / near black) across all templates instead of relying on `text-secondary` (which previously evaluated to `#0051d5` blue on Material Design 3 templates).
+  - Maintained `.nav-item.active` indigo styling (`#4f46e5` with `#eef2ff` background and 4px accent border).
+  - Injected Font Awesome CDN into `Templates/shared/styles.css` so that the Sentinel Admin badge icon and the "+ Generate QR" button icons display consistently across all pages.
+- **Attendance Page & QR Page Layout Fix:**
+  - Removed duplicate `ml-64` / `md:ml-64` on `<main>` in `Daily_Attendnace_Tracking_Page.html` and `QR_Generation_Page.html`, eliminating the oversized 256px white gap between the sidebar border and the main content viewport.
+- **Testing Mode for 2FA / Authenticator App:**
+  - Added `DISABLE_TOTP=true` support in `.env` and `modules/auth/controller.js`.
+  - When enabled or when testing, login returns the complete JWT directly without requiring OTP code setup/verification.
+  - Added a "Skip Authenticator (Testing Mode)" button in `Templates/Login_Page.html` and accepted bypass code `000000` for seamless local testing.
+  - Added automatic in-memory MongoDB fallback in `shared/config/db.js` if MongoDB Atlas cluster IP whitelist blocks connection during local development.
+
+---
+
+## 13. What to Upload in the New Chat
 
 To get full context without re-explaining anything, upload these files alongside this 
 memory document:
@@ -426,3 +442,4 @@ memory file just tracks the higher-level project decisions.
 project — see attached memory file for full context, and keep it updated as we go per 
 the instruction at the top of it. We're now at the merge phase (Section 7 in the memory 
 file). [describe whatever error or question you actually have]."
+
