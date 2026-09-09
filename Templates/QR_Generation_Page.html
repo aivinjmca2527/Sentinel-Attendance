@@ -216,7 +216,7 @@
   const QR_POLL_MS = 5000;
 
   if (!localStorage.getItem('token')) {
-    window.location.href = '/Templates/Login_Page.html';
+    clearAuthAndRedirect();
   }
 
   const qrImage      = document.getElementById('qr-code-image');
@@ -232,7 +232,7 @@
   async function fetchCurrentQR() {
     try {
       const res = await fetch(`${API_BASE}/api/qr/current`, { headers: authHeaders() });
-      if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return; }
+      if (res.status === 401) { clearAuthAndRedirect(); return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
@@ -271,7 +271,7 @@
   async function fetchRecentScans() {
     try {
       const res = await fetch(`${API_BASE}/api/qr/recent-scans`, { headers: authHeaders() });
-      if (res.status === 401) { window.location.href = '/Templates/Login_Page.html'; return; }
+      if (res.status === 401) { clearAuthAndRedirect(); return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const scans = await res.json();
 

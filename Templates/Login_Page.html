@@ -513,18 +513,31 @@
     }
   });
 
-  // If already logged in, redirect
-  const existingToken = localStorage.getItem('token');
-  const existingUser = localStorage.getItem('user');
-  if (existingToken && existingUser) {
-    try {
-      const u = JSON.parse(existingUser);
-      const role = (u.role || '').toLowerCase();
-      if (['admin', 'super admin', 'manager'].includes(role)) {
-        window.location.href = '/Templates/Admin_Dashboard_Page.html';
+  // If already logged in, validate token server-side before redirecting
+  (async function () {
+    const existingToken = localStorage.getItem('token');
+    const existingUser = localStorage.getItem('user');
+    if (existingToken && existingUser) {
+      try {
+        const res = await fetch(API_BASE + '/api/auth/me', {
+          headers: { 'Authorization': 'Bearer ' + existingToken }
+        });
+        if (res.ok) {
+          const u = JSON.parse(existingUser);
+          const role = (u.role || '').toLowerCase();
+          if (['admin', 'super admin', 'manager'].includes(role)) {
+            window.location.href = '/Templates/Admin_Dashboard_Page.html';
+          }
+        } else {
+          // Token is invalid/expired — clear it so we don't loop
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      } catch (_) {
+        // Network error — stay on login, don't redirect
       }
-    } catch (_) {}
-  }
+    }
+  })();
 })();
 </script>
 </body></html>

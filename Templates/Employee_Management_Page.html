@@ -496,7 +496,7 @@
 
   // ── Boot ──
   if (!localStorage.getItem('token')) {
-    window.location.href = '/Templates/Login_Page.html';
+    clearAuthAndRedirect();
   } else {
     loadDepartments();
     loadEmployees();
