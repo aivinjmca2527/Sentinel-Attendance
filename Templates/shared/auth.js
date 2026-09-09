@@ -13,8 +13,16 @@ function authHeaders(extra) {
 function clearAuthAndRedirect() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = '/Templates/Login_Page.html';
+  if (window.location.pathname.indexOf('Login_Page.html') === -1) {
+    window.location.href = '/Templates/Login_Page.html';
+  }
 }
+
+window.addEventListener('pageshow', function(event) {
+  if (!localStorage.getItem('token') && window.location.pathname.indexOf('Login_Page.html') === -1) {
+    clearAuthAndRedirect();
+  }
+});
 
 function handle401(res) {
   if (res.status === 401) {
