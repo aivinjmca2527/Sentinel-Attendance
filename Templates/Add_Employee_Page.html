@@ -1,0 +1,457 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Add New Employee - Sentinel Attendance</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .form-input-focus {
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .form-input-focus:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        .success-toast {
+            animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .error-shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "background": "#f7f9fb",
+                        "on-tertiary-container": "#75859d",
+                        "inverse-on-surface": "#eff1f3",
+                        "primary-fixed-dim": "#bec6e0",
+                        "surface-container-low": "#f2f4f6",
+                        "primary": "#000000",
+                        "secondary": "#0051d5",
+                        "on-primary-fixed": "#131b2e",
+                        "on-error-container": "#93000a",
+                        "on-primary-container": "#7c839b",
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed-dim": "#b4c5ff",
+                        "on-secondary-fixed-variant": "#003ea8",
+                        "on-secondary-container": "#fefcff",
+                        "on-tertiary-fixed-variant": "#38485d",
+                        "surface-dim": "#d8dadc",
+                        "inverse-primary": "#bec6e0",
+                        "on-surface-variant": "#45464d",
+                        "primary-container": "#131b2e",
+                        "warning": "#F59E0B",
+                        "tertiary": "#000000",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "on-primary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed": "#0b1c30",
+                        "tertiary-container": "#0b1c30",
+                        "error": "#EF4444",
+                        "tertiary-fixed-dim": "#b7c8e1",
+                        "on-surface": "#191c1e",
+                        "surface-container-high": "#e6e8ea",
+                        "on-background": "#191c1e",
+                        "on-secondary-fixed": "#00174b",
+                        "tertiary-fixed": "#d3e4fe",
+                        "secondary-container": "#316bf3",
+                        "surface": "#FFFFFF",
+                        "border": "#E2E8F0",
+                        "outline": "#76777d",
+                        "outline-variant": "#c6c6cd",
+                        "surface-bright": "#f7f9fb",
+                        "surface-container-highest": "#e0e3e5",
+                        "error-container": "#ffdad6",
+                        "success": "#10B981",
+                        "surface-container": "#eceef0",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed": "#dbe1ff",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#dae2fd",
+                        "surface-variant": "#e0e3e5",
+                        "surface-tint": "#565e74"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-max": "1280px",
+                        "gutter": "16px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "lg": "24px",
+                        "margin-desktop": "32px",
+                        "xl": "40px",
+                        "margin-mobile": "16px",
+                        "base": "4px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter", "sans-serif"],
+                        "headline-md": ["Inter", "sans-serif"],
+                        "body-md": ["JetBrains Mono", "monospace"],
+                        "label-sm": ["JetBrains Mono", "monospace"],
+                        "headline-sm": ["Inter", "sans-serif"],
+                        "body-lg": ["JetBrains Mono", "monospace"],
+                        "label-md": ["JetBrains Mono", "monospace"],
+                        "body-sm": ["JetBrains Mono", "monospace"],
+                        "headline-lg-mobile": ["Inter", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["13px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<link rel="stylesheet" href="/Templates/shared/styles.css">
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen">
+<!-- Sidebar -->
+<div id="sidebar-container" class="fixed left-0 top-0 z-40 hidden md:block"></div>
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-inverse-surface fixed top-0 w-full z-30 border-b border-border dark:border-outline-variant flex justify-between items-center px-margin-mobile md:px-margin-desktop h-16 md:ml-64 md:max-w-[calc(100%-16rem)]">
+  <div class="flex items-center gap-4 flex-1">
+    <div class="font-headline-sm text-headline-sm font-black text-primary dark:text-primary-fixed-dim mr-8">Sentinel Attendance</div>
+  </div>
+  <div class="flex items-center gap-4">
+    <button class="text-on-surface-variant hover:text-primary transition-colors p-2 focus:ring-2 ring-secondary/50 rounded-full">
+      <span class="material-symbols-outlined">notifications</span>
+    </button>
+    <button class="focus:ring-2 ring-secondary/50 rounded-full overflow-hidden">
+      <img alt="User profile" class="w-8 h-8 object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_6KVVScPn2XvQsposjy0RDASuBQr7AMBqYVlrX5L7F3NX553vLkec_T0RU0eSDXFDy6HR-2NIIzGt61eMxg217mRtDJqBUQCValRH5GEmLjAHv6OQMJ5NFsjFF05vR22jSxW3onhTWLa4WI2APkKOjNFjKXbUKke1bg2f8pEU8OsmMXPjKw5LbfK6F73l3uQ8qz7GkrjHcracNlgzS052ZbFzGBLz9t3sd-4JIk98FA5yx9V2V5_l">
+    </button>
+  </div>
+</header>
+<!-- Main Content Area -->
+<main class="pt-20 md:pt-24 pb-12 px-margin-mobile md:px-margin-desktop md:ml-64 max-w-container-max mx-auto">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-body-sm font-body-sm text-on-surface-variant mb-6 fade-in">
+    <a href="/Templates/Employee_Management_Page.html" class="hover:text-secondary transition-colors">Employees</a>
+    <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+    <span class="text-on-surface font-medium">Add New Employee</span>
+  </nav>
+
+  <!-- Page Header -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-xl fade-in">
+    <div>
+      <h2 class="font-headline-lg text-headline-lg">Add New Employee</h2>
+      <p class="font-body-md text-body-md text-on-surface-variant mt-1">Create a new employee account. They will receive default login credentials.</p>
+    </div>
+    <a href="/Templates/Employee_Management_Page.html"
+       class="flex items-center gap-2 border border-border text-on-surface-variant hover:bg-surface-container-low transition-colors px-4 py-2.5 rounded-DEFAULT font-label-md text-label-md self-start">
+      <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+      Back to Employees
+    </a>
+  </div>
+
+  <!-- Form Card -->
+  <div class="bg-surface rounded-lg border border-border shadow-sm overflow-hidden fade-in" style="animation-delay: 0.1s">
+    <form id="add-employee-form" class="p-6 md:p-8">
+
+      <!-- Section: Personal Information -->
+      <div class="mb-8">
+        <div class="flex items-center gap-2 mb-5 pb-3 border-b border-border">
+          <span class="material-symbols-outlined text-secondary text-[22px]">person</span>
+          <h3 class="font-headline-sm text-[17px] font-semibold text-on-surface">Personal Information</h3>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label for="emp-name" class="block font-label-md text-label-md text-on-surface mb-1.5">
+              Full Name <span class="text-error">*</span>
+            </label>
+            <input type="text" id="emp-name" required placeholder="e.g. John Doe"
+                   class="w-full px-3.5 py-2.5 border border-border rounded-lg bg-surface text-on-surface font-body-md form-input-focus focus:outline-none">
+          </div>
+          <div>
+            <label for="emp-email" class="block font-label-md text-label-md text-on-surface mb-1.5">
+              Email Address <span class="text-error">*</span>
+            </label>
+            <input type="email" id="emp-email" required placeholder="e.g. john.doe@company.com"
+                   class="w-full px-3.5 py-2.5 border border-border rounded-lg bg-surface text-on-surface font-body-md form-input-focus focus:outline-none">
+          </div>
+          <div>
+            <label for="emp-phone" class="block font-label-md text-label-md text-on-surface mb-1.5">
+              Phone Number
+            </label>
+            <input type="tel" id="emp-phone" placeholder="e.g. +91 98765 43210"
+                   class="w-full px-3.5 py-2.5 border border-border rounded-lg bg-surface text-on-surface font-body-md form-input-focus focus:outline-none">
+          </div>
+          <div>
+            <label for="emp-joindate" class="block font-label-md text-label-md text-on-surface mb-1.5">
+              Date of Joining
+            </label>
+            <input type="date" id="emp-joindate"
+                   class="w-full px-3.5 py-2.5 border border-border rounded-lg bg-surface text-on-surface font-body-md form-input-focus focus:outline-none">
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Employment Details -->
+      <div class="mb-8">
+        <div class="flex items-center gap-2 mb-5 pb-3 border-b border-border">
+          <span class="material-symbols-outlined text-secondary text-[22px]">badge</span>
+          <h3 class="font-headline-sm text-[17px] font-semibold text-on-surface">Employment Details</h3>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label for="emp-designation" class="block font-label-md text-label-md text-on-surface mb-1.5">
+              Designation <span class="text-error">*</span>
+            </label>
+            <input type="text" id="emp-designation" required placeholder="e.g. Software Engineer"
+                   class="w-full px-3.5 py-2.5 border border-border rounded-lg bg-surface text-on-surface font-body-md form-input-focus focus:outline-none">
+          </div>
+          <div>
+            <label for="emp-dept" class="block font-label-md text-label-md text-on-surface mb-1.5">
+              Department
+            </label>
+            <select id="emp-dept"
+                    class="w-full px-3.5 py-2.5 border border-border rounded-lg bg-surface text-on-surface font-body-md form-input-focus focus:outline-none">
+              <option value="">— Select Department —</option>
+            </select>
+          </div>
+          <div>
+            <label for="emp-role" class="block font-label-md text-label-md text-on-surface mb-1.5">
+              System Role
+            </label>
+            <select id="emp-role"
+                    class="w-full px-3.5 py-2.5 border border-border rounded-lg bg-surface text-on-surface font-body-md form-input-focus focus:outline-none">
+              <option value="employee">Employee</option>
+              <option value="manager">Manager</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div>
+            <label for="emp-status" class="block font-label-md text-label-md text-on-surface mb-1.5">
+              Status
+            </label>
+            <select id="emp-status"
+                    class="w-full px-3.5 py-2.5 border border-border rounded-lg bg-surface text-on-surface font-body-md form-input-focus focus:outline-none">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Default credentials info -->
+      <div class="mb-8 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg p-4 flex items-start gap-3">
+        <span class="material-symbols-outlined text-secondary text-[20px] mt-0.5">info</span>
+        <div>
+          <p class="font-label-md text-label-md text-[#1E40AF] mb-1">Default Login Credentials</p>
+          <p class="font-body-sm text-body-sm text-[#3B82F6]">
+            The new employee will be assigned the default password <code class="bg-[#DBEAFE] px-1.5 py-0.5 rounded text-[#1E3A8A] font-semibold">Welcome@123</code>.
+            They should change it upon first login.
+          </p>
+        </div>
+      </div>
+
+      <!-- Error message -->
+      <div id="form-error" class="hidden mb-5 bg-error-container border border-error/20 rounded-lg p-4 flex items-start gap-3 error-shake">
+        <span class="material-symbols-outlined text-error text-[20px] mt-0.5">error</span>
+        <p id="form-error-text" class="font-body-md text-body-md text-on-error-container"></p>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex flex-col sm:flex-row items-center gap-3 pt-4 border-t border-border">
+        <button type="submit" id="submit-btn"
+                class="btn-primary flex items-center justify-center gap-2 text-white px-8 py-3 rounded-lg font-label-md text-label-md w-full sm:w-auto min-w-[200px]">
+          <span class="material-symbols-outlined text-[18px]">person_add</span>
+          <span id="submit-btn-text">Create Employee</span>
+        </button>
+        <a href="/Templates/Employee_Management_Page.html"
+           class="flex items-center justify-center gap-2 border border-border text-on-surface-variant hover:bg-surface-container-low transition-colors px-6 py-3 rounded-lg font-label-md text-label-md w-full sm:w-auto">
+          Cancel
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</main>
+
+<!-- Success Toast -->
+<div id="success-toast" class="fixed top-20 right-6 z-50 hidden">
+  <div class="success-toast bg-success text-white px-5 py-3.5 rounded-lg shadow-lg flex items-center gap-3">
+    <span class="material-symbols-outlined text-[20px]">check_circle</span>
+    <span class="font-label-md text-label-md">Employee created successfully!</span>
+  </div>
+</div>
+
+<script src="/Templates/shared/auth.js"></script>
+<script src="/Templates/shared/sidebar.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const API_BASE = window.location.origin;
+
+  // ── Auth guard ──
+  if (!localStorage.getItem('token')) {
+    clearAuthAndRedirect();
+    return;
+  }
+
+  // ── Role check ──
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const userRole = (currentUser.role || '').toLowerCase();
+  const canWrite = ['manager', 'admin', 'super admin'].includes(userRole);
+
+  if (!canWrite) {
+    alert('You do not have permission to create employees.');
+    window.location.href = '/Templates/Employee_Management_Page.html';
+    return;
+  }
+
+  // ── DOM refs ──
+  const form = document.getElementById('add-employee-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const submitBtnText = document.getElementById('submit-btn-text');
+  const formError = document.getElementById('form-error');
+  const formErrorText = document.getElementById('form-error-text');
+  const successToast = document.getElementById('success-toast');
+
+  // Set today's date as default join date
+  const joinDateInput = document.getElementById('emp-joindate');
+  joinDateInput.value = new Date().toISOString().split('T')[0];
+
+  // ── Load departments into dropdown ──
+  async function loadDepartments() {
+    try {
+      const res = await fetch(API_BASE + '/api/departments', { headers: authHeaders() });
+      if (handle401(res)) return;
+      if (!res.ok) return;
+      const departments = await res.json();
+      const deptSelect = document.getElementById('emp-dept');
+      departments.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.name;
+        deptSelect.appendChild(opt);
+      });
+    } catch (err) {
+      console.error('[Departments]', err);
+    }
+  }
+
+  // ── Form submission ──
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    formError.classList.add('hidden');
+
+    const name = document.getElementById('emp-name').value.trim();
+    const email = document.getElementById('emp-email').value.trim();
+    const phone = document.getElementById('emp-phone').value.trim() || null;
+    const role = document.getElementById('emp-role').value;
+    const department_id = document.getElementById('emp-dept').value || null;
+    const designation = document.getElementById('emp-designation').value.trim();
+    const status = document.getElementById('emp-status').value;
+    const join_date = document.getElementById('emp-joindate').value || undefined;
+
+    if (!name || !email || !designation) {
+      showError('Please fill in all required fields (Name, Email, Designation).');
+      return;
+    }
+
+    // Disable button + show loading
+    submitBtn.disabled = true;
+    submitBtnText.textContent = 'Creating...';
+
+    try {
+      const res = await fetch(API_BASE + '/api/employees', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ name, email, phone, role, department_id, designation, status, join_date })
+      });
+
+      if (handle401(res)) return;
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'Failed to create employee.');
+        return;
+      }
+
+      // Success — show toast and redirect
+      successToast.classList.remove('hidden');
+      form.reset();
+
+      setTimeout(() => {
+        window.location.href = '/Templates/Employee_Management_Page.html';
+      }, 1500);
+
+    } catch (err) {
+      showError('Network error. Please check your connection and try again.');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtnText.textContent = 'Create Employee';
+    }
+  });
+
+  function showError(msg) {
+    formErrorText.textContent = msg;
+    formError.classList.remove('hidden');
+    formError.classList.remove('error-shake');
+    // Re-trigger animation
+    void formError.offsetWidth;
+    formError.classList.add('error-shake');
+    formError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // ── Boot ──
+  loadDepartments();
+})();
+</script>
+
+</body></html>
