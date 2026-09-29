@@ -24,6 +24,7 @@ const qrRoutes = require('./modules/qr/routes');                      // Aivin
 const dashboardRoutes = require('./modules/dashboard/routes');               // Amina
 const reportRoutes = require('./modules/reports/routes');                 // Amina
 const leaveRoutes = require('./modules/leave/routes');                    // Nandana
+const securityRoutes = require('./modules/security/routes');              // Aivin
 
 // ─── App ─────────────────────────────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ app.use('/api/qr', qrRoutes);                       // Aivin
 app.use('/api/dashboard', dashboardRoutes);                 // Amina
 app.use('/api/reports', reportRoutes);                    // Amina
 app.use('/api/leave', leaveRoutes);                     // Nandana
+app.use('/api/security', securityRoutes);                // Aivin
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });

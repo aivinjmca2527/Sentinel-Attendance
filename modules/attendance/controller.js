@@ -9,8 +9,10 @@ const Attendance = require('../../shared/models/Attendance');
 const {
   runVerificationPipeline,
   verifyQrSignatureAndExpiry,
+  verifyDepartmentMatch,
   verifyNoDuplicateCheckin,
   verifyCheckoutPreconditions,
+  verifyGeofence,
 } = require('./verificationSteps');
 
 // ─── Configuration ──────────────────────────────────────────────────────────
@@ -62,24 +64,27 @@ function getCheckoutStatus(workingHours, checkinStatus) {
 }
 
 // ─── Verification step arrays ───────────────────────────────────────────────
-// FUTURE: Add verifyGeofence, verifyFaceMatch here as extra steps.
 // Each step is an async function(ctx) that throws on rejection.
 
 const checkinSteps = [
   verifyQrSignatureAndExpiry,   // checks code_value / signature / expires_at
+  verifyDepartmentMatch,        // checks employee dept matches QR dept (blocks 403)
   verifyNoDuplicateCheckin,     // checks employee doesn't already have today's record
+  verifyGeofence,               // checks location, logs alert if outside (non-blocking)
 ];
 
 const checkoutSteps = [
   verifyQrSignatureAndExpiry,   // same QR integrity check
+  verifyDepartmentMatch,        // same department check
   verifyCheckoutPreconditions,  // must have check-in, must not already have check-out
+  verifyGeofence,               // same geofence check (non-blocking)
 ];
 
 // ─── Route handlers ─────────────────────────────────────────────────────────
 
 /**
  * POST /api/attendance/checkin
- * Body: { qr_session_id, code_value, signature }
+ * Body: { qr_session_id, code_value, signature, latitude?, longitude? }
  * Called by the mobile app after an employee scans the QR code.
  */
 async function checkin(req, res) {
@@ -106,6 +111,10 @@ async function checkin(req, res) {
     const now = new Date();
     const status = getCheckinStatus(now);
 
+    // Determine verification method based on whether location was provided
+    const hasLocation = ctx.latitude != null && ctx.longitude != null;
+    const verification_method = hasLocation ? 'qr_geo' : 'qr_only';
+
     // Create today's attendance record
     const record = new Attendance({
       employee_id,
@@ -113,10 +122,9 @@ async function checkin(req, res) {
       check_in_time: now,
       check_in_qr_session_id: ctx.qrSession._id,
       status,
-      verification_method: 'qr_only',
-      // Reserved fields — not populated in this phase
-      // check_in_latitude: null,
-      // check_in_longitude: null,
+      verification_method,
+      check_in_latitude: ctx.latitude,
+      check_in_longitude: ctx.longitude,
     });
 
     await record.save();
@@ -126,6 +134,7 @@ async function checkin(req, res) {
       attendance_id: record._id,
       check_in_time: record.check_in_time,
       status: record.status,
+      verification_method: record.verification_method,
     });
   } catch (err) {
     const status = err.status || 500;
@@ -135,7 +144,7 @@ async function checkin(req, res) {
 
 /**
  * POST /api/attendance/checkout
- * Body: { qr_session_id, code_value, signature }
+ * Body: { qr_session_id, code_value, signature, latitude?, longitude? }
  * Called by the mobile app when the employee scans to check out.
  *
  * NOTE: Records with check_in_time set but check_out_time still null
@@ -165,9 +174,14 @@ async function checkout(req, res) {
 
     record.check_out_time = now;
     record.check_out_qr_session_id = ctx.qrSession._id;
-    // Reserved fields — not populated in this phase
-    // record.check_out_latitude = null;
-    // record.check_out_longitude = null;
+    record.check_out_latitude = ctx.latitude;
+    record.check_out_longitude = ctx.longitude;
+
+    // Upgrade verification method if location was provided
+    const hasLocation = ctx.latitude != null && ctx.longitude != null;
+    if (hasLocation && record.verification_method === 'qr_only') {
+      record.verification_method = 'qr_geo';
+    }
 
     // Always recompute working hours and status from timestamps
     record.working_hours = computeWorkingHours(record.check_in_time, now);

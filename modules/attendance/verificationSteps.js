@@ -5,8 +5,8 @@
  * and either returns normally (pass) or throws an error with { status, message } to reject.
  *
  * ┌─────────────────────────────────────────────────────────────────────────────┐
- * │ FUTURE CONTRIBUTORS: To add new verification steps (e.g. geofencing,      │
- * │ face-match), define a new async function following the same signature      │
+ * │ FUTURE CONTRIBUTORS: To add new verification steps (e.g. face-match),     │
+ * │ define a new async function following the same signature                   │
  * │ and insert it into the checkinSteps / checkoutSteps arrays in              │
  * │ controller.js. Each step receives `ctx` and throws to reject.             │
  * └─────────────────────────────────────────────────────────────────────────────┘
@@ -15,6 +15,9 @@
 const crypto = require('crypto');
 const QRSession = require('../../shared/models/QRSession');
 const Attendance = require('../../shared/models/Attendance');
+const Employee = require('../../shared/models/Employee');
+const Department = require('../../shared/models/Department');
+const SecurityAlert = require('../../shared/models/SecurityAlert');
 
 const QR_SIGNING_SECRET = process.env.QR_SIGNING_SECRET || 'default-dev-secret';
 
@@ -91,7 +94,60 @@ async function verifyQrSignatureAndExpiry(ctx) {
 }
 
 /**
- * Step 2: Verify no duplicate scan (check-in).
+ * Step 2: Verify department match.
+ * - Looks up the employee's department_id
+ * - Compares it against the QR session's department_id
+ * - Blocks check-in if they don't match (403)
+ *
+ * Throws 403 for cross-department QR scans.
+ */
+async function verifyDepartmentMatch(ctx) {
+  const { employee_id } = ctx;
+
+  const employee = await Employee.findById(employee_id).lean();
+  if (!employee) {
+    const err = new Error('Employee not found.');
+    err.status = 404;
+    throw err;
+  }
+
+  // Attach employee to context for downstream use
+  ctx.employee = employee;
+
+  const qrDeptId = ctx.qrSession.department_id?.toString();
+  const empDeptId = employee.department_id?.toString();
+
+  if (!qrDeptId || !empDeptId) {
+    // If either has no department set, skip the check (graceful fallback)
+    console.warn('[Verification] Department check skipped — missing department_id on employee or QR session.');
+    return;
+  }
+
+  if (qrDeptId !== empDeptId) {
+    // Log a security alert for the cross-department attempt
+    try {
+      await SecurityAlert.create({
+        employee_id,
+        alert_type: 'department_mismatch',
+        severity: 'high',
+        message: `Employee attempted to scan QR code from a different department.`,
+        metadata: {
+          department_id: ctx.qrSession.department_id,
+          qr_session_id: ctx.qrSession._id,
+        },
+      });
+    } catch (alertErr) {
+      console.error('[Verification] Failed to log department mismatch alert:', alertErr.message);
+    }
+
+    const err = new Error('Department mismatch: you cannot check in with another department\'s QR code.');
+    err.status = 403;
+    throw err;
+  }
+}
+
+/**
+ * Step 3: Verify no duplicate scan (check-in).
  * Ensures the employee does not already have a check_in_time for today.
  *
  * Throws 409 on duplicate.
@@ -113,7 +169,7 @@ async function verifyNoDuplicateCheckin(ctx) {
 }
 
 /**
- * Step 2 (checkout variant): Verify checkout preconditions.
+ * Step 3 (checkout variant): Verify checkout preconditions.
  * - Employee must have a check_in_time for today (can't check out without checking in)
  * - Employee must NOT already have a check_out_time
  *
@@ -142,9 +198,103 @@ async function verifyCheckoutPreconditions(ctx) {
   ctx.attendanceRecord = record;
 }
 
+/**
+ * Step 4: Verify geofence (non-blocking).
+ * - Reads latitude/longitude from request body
+ * - Computes distance from department's geofence center using Haversine formula
+ * - If outside the geofence radius, logs a SecurityAlert but DOES NOT block attendance
+ * - Attaches location data to ctx for the controller to store on the attendance record
+ *
+ * This step never throws — it always passes. Violations are logged as alerts.
+ */
+async function verifyGeofence(ctx) {
+  const { latitude, longitude } = ctx.body;
+
+  // Store location on context regardless (controller will save to attendance record)
+  ctx.latitude = latitude || null;
+  ctx.longitude = longitude || null;
+
+  // If no location sent by client, skip geofence check
+  if (latitude == null || longitude == null) {
+    return;
+  }
+
+  // Look up department geofence config
+  const empDeptId = ctx.employee?.department_id || ctx.qrSession?.department_id;
+  if (!empDeptId) return;
+
+  const dept = await Department.findById(empDeptId).lean();
+  if (!dept || dept.geofence_lat == null || dept.geofence_lng == null) {
+    // No geofence configured for this department — skip
+    return;
+  }
+
+  const distance = haversineDistance(
+    latitude, longitude,
+    dept.geofence_lat, dept.geofence_lng
+  );
+
+  const radius = dept.geofence_radius_m || 200;
+
+  if (distance > radius) {
+    // Outside geofence — log alert but DON'T block
+    console.warn(
+      `[Geofence] Employee ${ctx.employee_id} is ${Math.round(distance)}m from ` +
+      `${dept.department_name} center (limit: ${radius}m)`
+    );
+
+    try {
+      await SecurityAlert.create({
+        employee_id: ctx.employee_id,
+        alert_type: 'geofence_violation',
+        severity: 'high',
+        message: `Employee scanned QR ${Math.round(distance)}m outside the ${dept.department_name} geofence (limit: ${radius}m).`,
+        metadata: {
+          latitude,
+          longitude,
+          department_id: empDeptId,
+          distance_m: Math.round(distance),
+          qr_session_id: ctx.qrSession?._id,
+        },
+      });
+    } catch (alertErr) {
+      console.error('[Geofence] Failed to log geofence alert:', alertErr.message);
+    }
+  }
+}
+
+// ─── Haversine helper ───────────────────────────────────────────────────────
+
+/**
+ * Compute the distance in meters between two lat/lng points using the Haversine formula.
+ * @param {number} lat1 - Latitude of point 1
+ * @param {number} lng1 - Longitude of point 1
+ * @param {number} lat2 - Latitude of point 2
+ * @param {number} lng2 - Longitude of point 2
+ * @returns {number} Distance in meters
+ */
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000; // Earth radius in meters
+  const toRad = (deg) => (deg * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 module.exports = {
   runVerificationPipeline,
   verifyQrSignatureAndExpiry,
+  verifyDepartmentMatch,
   verifyNoDuplicateCheckin,
   verifyCheckoutPreconditions,
+  verifyGeofence,
+  haversineDistance,
 };

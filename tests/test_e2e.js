@@ -115,8 +115,16 @@ async function run() {
   // ═══════════════════════════════════════════
   console.log('\n─── Module 2: QR & Attendance (Aivin) ───');
 
-  const qr = await req('GET', '/api/qr/current', null, adminToken);
-  log(qr.s === 200 && qr.b.code_value, 'QR current session', `session=${qr.b.qr_session_id || 'none'}`);
+  // QR now requires department_id
+  const testDeptId = depts.b && depts.b[0] ? (depts.b[0]._id || depts.b[0].id) : null;
+  const qr = testDeptId
+    ? await req('GET', `/api/qr/current?department_id=${testDeptId}`, null, adminToken)
+    : { s: 0, b: {} };
+  log(qr.s === 200 && qr.b.code_value, 'QR current session (dept-scoped)', `session=${qr.b.qr_session_id || 'none'}, dept=${testDeptId}`);
+
+  // QR without department_id should fail
+  const qrNoDept = await req('GET', '/api/qr/current', null, adminToken);
+  log(qrNoDept.s === 400, 'QR rejects missing department_id', `status=${qrNoDept.s}`);
 
   // Login as the new test employee (default password Welcome@123)
   const testLogin = await req('POST', '/api/auth/login', { email: testEmail, password: 'Welcome@123' });
@@ -127,18 +135,22 @@ async function run() {
     const checkin = await req('POST', '/api/attendance/checkin', {
       qr_session_id: qr.b.qr_session_id,
       code_value: qr.b.code_value,
-      signature: qr.b.signature
+      signature: qr.b.signature,
+      latitude: 10.0159,   // sample location
+      longitude: 76.3419,
     }, testToken);
     log(checkin.s === 201 || checkin.s === 200, 'Check-in via QR', `status=${checkin.s}, msg=${checkin.b.message || checkin.b.error || ''}`);
 
     // Wait for fresh QR, then check out
     await new Promise(r => setTimeout(r, 6000));
-    const qr2 = await req('GET', '/api/qr/current', null, adminToken);
+    const qr2 = await req('GET', `/api/qr/current?department_id=${testDeptId}`, null, adminToken);
     if (qr2.b.code_value) {
       const checkout = await req('POST', '/api/attendance/checkout', {
         qr_session_id: qr2.b.qr_session_id,
         code_value: qr2.b.code_value,
-        signature: qr2.b.signature
+        signature: qr2.b.signature,
+        latitude: 10.0159,
+        longitude: 76.3419,
       }, testToken);
       log(checkout.s === 200, 'Check-out via QR', `status=${checkout.s}, msg=${checkout.b.message || checkout.b.error || ''}`);
     } else {
@@ -146,7 +158,7 @@ async function run() {
     }
 
     // Duplicate check-in should be rejected
-    const qr3 = await req('GET', '/api/qr/current', null, adminToken);
+    const qr3 = await req('GET', `/api/qr/current?department_id=${testDeptId}`, null, adminToken);
     if (qr3.b.code_value) {
       const dup = await req('POST', '/api/attendance/checkin', {
         qr_session_id: qr3.b.qr_session_id,
@@ -156,11 +168,50 @@ async function run() {
       log(dup.s === 400 || dup.s === 409, 'Duplicate check-in rejected', `status=${dup.s}, msg=${dup.b.error || ''}`);
     }
 
+    // Cross-department QR scan should be rejected (if 2+ departments exist)
+    if (depts.b && depts.b.length >= 2) {
+      const otherDeptId = depts.b[1]._id || depts.b[1].id;
+      const qrOther = await req('GET', `/api/qr/current?department_id=${otherDeptId}`, null, adminToken);
+      if (qrOther.b.code_value) {
+        const crossDept = await req('POST', '/api/attendance/checkin', {
+          qr_session_id: qrOther.b.qr_session_id,
+          code_value: qrOther.b.code_value,
+          signature: qrOther.b.signature
+        }, testToken);
+        log(crossDept.s === 403, 'Cross-department QR rejected', `status=${crossDept.s}, msg=${crossDept.b.error || ''}`);
+      } else {
+        log(null, 'Cross-department QR test', 'skipped (no QR for other dept)');
+      }
+    } else {
+      log(null, 'Cross-department QR test', 'skipped (need 2+ departments)');
+    }
+
     // Verify attendance record exists
     const records = await req('GET', '/api/attendance', null, adminToken);
     log(records.s === 200 && Array.isArray(records.b) && records.b.length > 0, 'Attendance records exist', `${records.b.length} record(s)`);
   } else {
     log(false, 'Check-in/out tests', `testToken=${!!testToken}, qr=${!!qr.b.code_value}`);
+  }
+
+  // ═══════════════════════════════════════════
+  console.log('\n─── Module 2b: Security Alerts (Aivin) ───');
+
+  const alertStats = await req('GET', '/api/security/alerts/stats', null, adminToken);
+  log(alertStats.s === 200 && alertStats.b.total_open != null, 'Alert stats', `total_open=${alertStats.b.total_open}`);
+
+  const alertList = await req('GET', '/api/security/alerts', null, adminToken);
+  log(alertList.s === 200 && Array.isArray(alertList.b), 'List security alerts', `${Array.isArray(alertList.b) ? alertList.b.length : 0} alert(s)`);
+
+  // If any alerts exist, test acknowledge + resolve
+  if (Array.isArray(alertList.b) && alertList.b.length > 0) {
+    const firstAlert = alertList.b[0];
+    const ack = await req('PUT', `/api/security/alerts/${firstAlert._id}/acknowledge`, {}, adminToken);
+    log(ack.s === 200, 'Acknowledge alert', `status=${ack.s}`);
+
+    const resolve = await req('PUT', `/api/security/alerts/${firstAlert._id}/resolve`, {}, adminToken);
+    log(resolve.s === 200, 'Resolve alert', `status=${resolve.s}`);
+  } else {
+    log(null, 'Acknowledge/resolve alert', 'skipped (no alerts to test)');
   }
 
   // ═══════════════════════════════════════════
@@ -210,6 +261,7 @@ async function run() {
   log(orgReport.s === 200, 'Organisation report', `status=${orgReport.s}`);
 
   // Role-based access: non-admin denied
+  // We need to use empToken from Mary Lee's login up at the top
   if (empToken) {
     const denied = await req('GET', '/api/dashboard/summary', null, empToken);
     log(denied.s === 403, 'Dashboard denied for employee', `status=${denied.s}`);

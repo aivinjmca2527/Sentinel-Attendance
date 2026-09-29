@@ -114,6 +114,17 @@
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-lg">
 <!-- Left Column (Settings & Kiosk Actions) -->
 <div class="lg:col-span-4 flex flex-col gap-lg">
+<!-- Section 0: Department Selector -->
+<section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)] mb-0">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-secondary">corporate_fare</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Department</h3>
+</div>
+<select id="department-selector" class="w-full px-md py-sm border border-border rounded-lg font-body-md text-on-surface bg-surface-container-low focus:ring-2 focus:ring-secondary focus:border-secondary outline-none transition-all">
+<option value="" disabled selected>Loading departments...</option>
+</select>
+<p class="text-body-sm text-on-surface-variant mt-xs">Each department has its own QR code. Employees can only scan their department's code.</p>
+</section>
 <!-- Section 1: Global QR Settings -->
 <section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
 <div class="flex items-center gap-sm mb-lg">
@@ -193,13 +204,14 @@
 <thead class="bg-surface-bright text-on-surface-variant font-label-md text-label-md border-b border-border">
 <tr>
 <th class="px-lg py-md font-medium">Employee</th>
+<th class="px-lg py-md font-medium">Department</th>
 <th class="px-lg py-md font-medium">Type</th>
 <th class="px-lg py-md font-medium">Status</th>
 <th class="px-lg py-md font-medium">Time</th>
 </tr>
 </thead>
 <tbody id="recent-scans-tbody" class="divide-y divide-border">
-<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">Loading recent scans...</td></tr>
+<tr><td colspan="5" class="px-lg py-md text-center text-on-surface-variant">Loading recent scans...</td></tr>
 </tbody>
 </table>
 </div>
@@ -219,19 +231,72 @@
     clearAuthAndRedirect();
   }
 
-  const qrImage      = document.getElementById('qr-code-image');
-  const qrExpiryText = document.getElementById('qr-expiry-text');
-  const qrCountdown  = document.getElementById('qr-countdown');
-  const scansTbody   = document.getElementById('recent-scans-tbody');
-  const scanBadge    = document.getElementById('scan-count-badge');
+  const qrImage        = document.getElementById('qr-code-image');
+  const qrExpiryText   = document.getElementById('qr-expiry-text');
+  const qrCountdown    = document.getElementById('qr-countdown');
+  const scansTbody     = document.getElementById('recent-scans-tbody');
+  const scanBadge      = document.getElementById('scan-count-badge');
+  const deptSelector   = document.getElementById('department-selector');
 
   let currentExpiresAt = null;
   let countdownTimer   = null;
+  let qrPollInterval   = null;
+  let scanPollInterval = null;
+  let selectedDeptId   = null;
+
+  // ── Department Selector ───────────────────────────────────
+  async function fetchDepartments() {
+    try {
+      const res = await fetch(`${API_BASE}/api/departments`, { headers: authHeaders() });
+      if (res.status === 401) { clearAuthAndRedirect(); return; }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const depts = await res.json();
+
+      if (depts.length === 0) {
+        deptSelector.innerHTML = '<option value="" disabled selected>No departments found</option>';
+        return;
+      }
+
+      deptSelector.innerHTML = '<option value="" disabled selected>Select a department...</option>' +
+        depts.map(d => `<option value="${d._id}">${d.department_name}</option>`).join('');
+
+      // Auto-select first department
+      if (depts.length > 0) {
+        deptSelector.value = depts[0]._id;
+        selectedDeptId = depts[0]._id;
+        startPolling();
+      }
+    } catch (err) {
+      console.error('[Departments] Error:', err.message);
+      deptSelector.innerHTML = '<option value="" disabled selected>Error loading departments</option>';
+    }
+  }
+
+  deptSelector.addEventListener('change', (e) => {
+    selectedDeptId = e.target.value;
+    // Reset QR display
+    qrImage.src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=loading';
+    qrExpiryText.textContent = 'Loading QR code...';
+    qrCountdown.textContent = '';
+    startPolling();
+  });
+
+  function startPolling() {
+    // Clear old intervals
+    if (qrPollInterval) clearInterval(qrPollInterval);
+    if (scanPollInterval) clearInterval(scanPollInterval);
+
+    fetchCurrentQR();
+    fetchRecentScans();
+    qrPollInterval = setInterval(fetchCurrentQR, QR_POLL_MS);
+    scanPollInterval = setInterval(fetchRecentScans, QR_POLL_MS);
+  }
 
   // ── QR Polling ────────────────────────────────────────────
   async function fetchCurrentQR() {
+    if (!selectedDeptId) return;
     try {
-      const res = await fetch(`${API_BASE}/api/qr/current`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/api/qr/current?department_id=${selectedDeptId}`, { headers: authHeaders() });
       if (res.status === 401) { clearAuthAndRedirect(); return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -278,7 +343,7 @@
       scanBadge.textContent = `${scans.length} scan${scans.length !== 1 ? 's' : ''}`;
 
       if (scans.length === 0) {
-        scansTbody.innerHTML = '<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">No recent scans</td></tr>';
+        scansTbody.innerHTML = '<tr><td colspan="5" class="px-lg py-md text-center text-on-surface-variant">No recent scans</td></tr>';
         return;
       }
 
@@ -297,6 +362,7 @@
         const zebra = i % 2 === 1 ? 'bg-[#F8FAFC]' : '';
         return `<tr class="${zebra} hover:bg-surface-variant transition-colors">
           <td class="px-lg py-md text-on-surface font-medium">${s.employee_name}</td>
+          <td class="px-lg py-md text-on-surface-variant font-body-sm">${s.department_name || 'N/A'}</td>
           <td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">${type}</td>
           <td class="px-lg py-md"><span class="inline-flex items-center gap-xs px-2 py-1 rounded-full font-label-md text-[12px] ${sc}"><span class="w-2 h-2 rounded-full" style="background:currentColor"></span>${s.status || 'n/a'}</span></td>
           <td class="px-lg py-md text-on-surface-variant">${timeStr}</td>
@@ -308,10 +374,7 @@
   }
 
   // ── Boot ──────────────────────────────────────────────────
-  fetchCurrentQR();
-  fetchRecentScans();
-  setInterval(fetchCurrentQR, QR_POLL_MS);
-  setInterval(fetchRecentScans, QR_POLL_MS);
+  fetchDepartments();
 })();
 </script>
 

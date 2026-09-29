@@ -2,26 +2,28 @@
  * QR Module — Controller
  * -----------------------
  * Handles HTTP requests for the QR subsystem.
- * Starts the background rotation loop on module load.
+ * Generates department-scoped QR sessions on demand (lazy evaluation).
  */
 
 const qrService = require('./service');
 
-// Start the background rotation as soon as this module is required
-// (which happens when server.js mounts the QR routes).
-qrService.startRotationLoop();
-
 /**
- * GET /api/qr/current
+ * GET /api/qr/current?department_id=xxx
  * Protected (manager/admin).
- * Returns the latest non-expired QRSession.
+ * Returns the latest non-expired QRSession for the given department.
  * Generates one on demand if none is valid.
  */
 async function getCurrentQR(req, res) {
   try {
-    const session = await qrService.getOrCreateCurrentSession();
+    const { department_id } = req.query;
+    if (!department_id) {
+      return res.status(400).json({ error: 'department_id query parameter is required.' });
+    }
+
+    const session = await qrService.getOrCreateCurrentSession(department_id);
     return res.json({
       qr_session_id: session._id,
+      department_id: session.department_id,
       code_value: session.code_value,
       signature: session.signature,
       expires_at: session.expires_at,
@@ -47,12 +49,16 @@ async function getRecentScans(req, res) {
       .limit(10)
       .populate({
         path: 'employee_id',
-        populate: { path: 'user_id', select: 'name' },
+        populate: [
+          { path: 'user_id', select: 'name' },
+          { path: 'department_id', select: 'department_name' },
+        ],
       })
       .lean();
 
     const scans = records.map((r) => ({
       employee_name: r.employee_id?.user_id?.name || 'Unknown',
+      department_name: r.employee_id?.department_id?.department_name || 'Unknown',
       employee_id: r.employee_id?._id,
       check_in_time: r.check_in_time,
       check_out_time: r.check_out_time,

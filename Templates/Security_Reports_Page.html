@@ -179,48 +179,48 @@
 <!-- Top Row Stats Grid -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-lg mb-xl">
 <!-- Stat Card 1: Failed Scans -->
-<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow" title="Not yet implemented — no failed-scan logging exists in the backend">
+<div id="stat-failed-scans" class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow">
 <div class="flex justify-between items-start mb-sm">
 <div class="p-sm bg-error-container rounded-lg">
 <span class="material-symbols-outlined text-error">scan_delete</span>
 </div>
 </div>
 <h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">Failed Scans (24h)</h3>
-<p class="text-headline-md font-headline-md text-on-surface-variant">N/A</p>
-<p class="text-body-sm text-on-surface-variant mt-xs italic">Not yet implemented</p>
+<p id="stat-failed-count" class="text-headline-md font-headline-md text-on-surface">—</p>
+<p id="stat-failed-sub" class="text-body-sm text-on-surface-variant mt-xs">Loading...</p>
 </div>
-<!-- Stat Card 2: Anomalous Locations -->
-<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow" title="Not yet implemented — no anomaly detection exists in the backend">
+<!-- Stat Card 2: Geofence Violations -->
+<div id="stat-geofence" class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow">
 <div class="flex justify-between items-start mb-sm">
 <div class="p-sm bg-secondary-container bg-opacity-10 rounded-lg">
 <span class="material-symbols-outlined text-secondary">location_off</span>
 </div>
 </div>
-<h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">Anomalous Locations</h3>
-<p class="text-headline-md font-headline-md text-on-surface-variant">N/A</p>
-<p class="text-body-sm text-on-surface-variant mt-xs italic">Not yet implemented</p>
+<h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">Geofence Violations</h3>
+<p id="stat-geofence-count" class="text-headline-md font-headline-md text-on-surface">—</p>
+<p id="stat-geofence-sub" class="text-body-sm text-on-surface-variant mt-xs">Loading...</p>
 </div>
-<!-- Stat Card 3: System Uptime -->
-<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow" title="Not yet implemented — no uptime monitoring exists in the backend">
-<div class="flex justify-between items-start mb-sm">
-<div class="p-sm bg-success bg-opacity-10 rounded-lg">
-<span class="material-symbols-outlined text-success">dns</span>
-</div>
-</div>
-<h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">System Uptime</h3>
-<p class="text-headline-md font-headline-md text-on-surface-variant">—</p>
-<p class="text-body-sm text-on-surface-variant mt-xs italic">Not yet implemented</p>
-</div>
-<!-- Stat Card 4: Security Alerts -->
-<div class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow" title="Not yet implemented — no alerts system exists in the backend">
+<!-- Stat Card 3: Dept Mismatches -->
+<div id="stat-dept-mismatch" class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow">
 <div class="flex justify-between items-start mb-sm">
 <div class="p-sm bg-warning bg-opacity-10 rounded-lg">
-<span class="material-symbols-outlined text-warning">security</span>
+<span class="material-symbols-outlined text-warning">swap_horiz</span>
 </div>
 </div>
-<h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">Security Alerts</h3>
-<p class="text-headline-md font-headline-md text-on-surface-variant">N/A</p>
-<p class="text-body-sm text-on-surface-variant mt-xs italic">Not yet implemented</p>
+<h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">Dept Mismatches</h3>
+<p id="stat-dept-count" class="text-headline-md font-headline-md text-on-surface">—</p>
+<p id="stat-dept-sub" class="text-body-sm text-on-surface-variant mt-xs">Loading...</p>
+</div>
+<!-- Stat Card 4: Total Open Alerts -->
+<div id="stat-total-alerts" class="bg-surface border border-border p-lg rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-sm">
+<div class="p-sm bg-error bg-opacity-10 rounded-lg">
+<span class="material-symbols-outlined text-error">security</span>
+</div>
+</div>
+<h3 class="text-on-surface-variant font-body-sm mb-xs uppercase tracking-wider">Total Open Alerts</h3>
+<p id="stat-total-count" class="text-headline-md font-headline-md text-on-surface">—</p>
+<p id="stat-total-sub" class="text-body-sm text-on-surface-variant mt-xs">Loading...</p>
 </div>
 </div>
 <!-- Layout Grid: Audit Trail & Insights -->
@@ -240,18 +240,19 @@
 <thead class="bg-surface-container-low border-b border-border">
 <tr>
 <th class="px-lg py-md font-label-md text-on-surface-variant uppercase tracking-wider">Timestamp</th>
-<th class="px-lg py-md font-label-md text-on-surface-variant uppercase tracking-wider">Event Type</th>
-<th class="px-lg py-md font-label-md text-on-surface-variant uppercase tracking-wider">User/Device</th>
+<th class="px-lg py-md font-label-md text-on-surface-variant uppercase tracking-wider">Alert Type</th>
+<th class="px-lg py-md font-label-md text-on-surface-variant uppercase tracking-wider">Employee</th>
+<th class="px-lg py-md font-label-md text-on-surface-variant uppercase tracking-wider">Severity</th>
 <th class="px-lg py-md font-label-md text-on-surface-variant uppercase tracking-wider">Status</th>
 </tr>
 </thead>
-<tbody class="divide-y divide-border">
-<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">Loading audit trail...</td></tr>
+<tbody id="alerts-tbody" class="divide-y divide-border">
+<tr><td colspan="5" class="px-lg py-md text-center text-on-surface-variant">Loading security alerts...</td></tr>
 </tbody>
 </table>
 </div>
 <div class="p-md border-t border-border flex justify-between items-center bg-surface-container-lowest">
-<span class="text-body-sm text-on-surface-variant">Showing 0 security events</span>
+<span id="alert-event-count" class="text-body-sm text-on-surface-variant">Showing 0 security alerts</span>
 <div class="flex gap-sm">
 <button class="p-xs border border-border rounded-lg hover:bg-surface-container-low disabled:opacity-50" disabled="">
 <span class="material-symbols-outlined">chevron_left</span>
@@ -272,37 +273,9 @@
 <h3 class="font-headline-sm text-headline-sm text-primary">Security Insights</h3>
 </div>
 <!-- Insight List -->
-<div class="space-y-lg relative z-10">
-<!-- Insight 1 -->
-<div class="p-md bg-error-container bg-opacity-5 border border-error border-opacity-10 rounded-xl">
-<div class="flex gap-sm">
-<span class="material-symbols-outlined text-error mt-0.5">warning</span>
-<div>
-<p class="font-body-md font-semibold text-error mb-1">Brute Force Detected</p>
-<p class="text-body-sm text-on-surface-variant mb-md">Multiple failed logins (15+) from IP 192.168.1.104 within 60 seconds.</p>
-<button class="bg-error text-on-error px-md py-1.5 rounded-lg text-label-md hover:opacity-90 transition-all">Block IP Address</button>
-</div>
-</div>
-</div>
-<!-- Insight 2 -->
-<div class="p-md bg-warning bg-opacity-5 border border-warning border-opacity-10 rounded-xl">
-<div class="flex gap-sm">
-<span class="material-symbols-outlined text-warning mt-0.5">distance</span>
-<div>
-<p class="font-body-md font-semibold text-warning mb-1">Geofence Violation</p>
-<p class="text-body-sm text-on-surface-variant">4 scans occurred outside the primary geofence perimeter at 'South Warehouse' Kiosk.</p>
-</div>
-</div>
-</div>
-<!-- Insight 3 -->
-<div class="p-md bg-secondary-container bg-opacity-5 border border-secondary border-opacity-10 rounded-xl">
-<div class="flex gap-sm">
-<span class="material-symbols-outlined text-secondary mt-0.5">info</span>
-<div>
-<p class="font-body-md font-semibold text-secondary mb-1">QR Expiration Notice</p>
-<p class="text-body-sm text-on-surface-variant">Encryption keys are scheduled for rotation in 48 hours. No action required yet.</p>
-</div>
-</div>
+<div class="space-y-lg relative z-10" id="insights-container">
+<div class="p-md bg-surface-container-low rounded-xl">
+<p class="text-body-sm text-on-surface-variant text-center">Loading insights...</p>
 </div>
 </div>
 <!-- Decorative Background -->
@@ -446,69 +419,172 @@
                 });
             }
 
-            // ── Fetch report (JSON) ──
-            async function fetchReport() {
+            // ── Fetch security alerts ──
+            async function fetchAlerts() {
                 const startStr = toISODate(selectedStart);
                 const endStr = toISODate(selectedEnd);
                 try {
-                    const res = await fetch(`/api/reports/organisation?format=json&startDate=${startStr}&endDate=${endStr}`, {
+                    const res = await fetch(`/api/security/alerts?start_date=${startStr}&end_date=${endStr}&limit=50`, {
                         headers: authHeaders()
                     });
                     if (handle401Security(res)) return;
                     if (!res.ok) throw new Error('HTTP ' + res.status);
-                    const result = await res.json();
-                    renderReport(result);
+                    const alerts = await res.json();
+                    renderAlerts(alerts);
                 } catch (err) {
-                    console.error('[Reports] Fetch error:', err);
+                    console.error('[Security] Fetch alerts error:', err);
                 }
             }
 
-            // ── Render report into audit trail table ──
-            function renderReport(result) {
-                const tbl = document.querySelector('table tbody');
+            // ── Fetch alert stats ──
+            async function fetchStats() {
+                try {
+                    const res = await fetch('/api/security/alerts/stats', {
+                        headers: authHeaders()
+                    });
+                    if (handle401Security(res)) return;
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const stats = await res.json();
+                    renderStats(stats);
+                } catch (err) {
+                    console.error('[Security] Fetch stats error:', err);
+                }
+            }
+
+            // ── Render stats into stat cards ──
+            function renderStats(stats) {
+                const types = stats.open_by_type || {};
+                const total = stats.total_open || 0;
+
+                document.getElementById('stat-failed-count').textContent = types.expired_qr || 0;
+                document.getElementById('stat-failed-sub').textContent = types.expired_qr ? `${types.expired_qr} open alert(s)` : 'No failed scan alerts';
+
+                document.getElementById('stat-geofence-count').textContent = types.geofence_violation || 0;
+                document.getElementById('stat-geofence-sub').textContent = types.geofence_violation ? `${types.geofence_violation} open violation(s)` : 'No geofence violations';
+
+                document.getElementById('stat-dept-count').textContent = types.department_mismatch || 0;
+                document.getElementById('stat-dept-sub').textContent = types.department_mismatch ? `${types.department_mismatch} open alert(s)` : 'No dept mismatches';
+
+                document.getElementById('stat-total-count').textContent = total;
+                document.getElementById('stat-total-sub').textContent = total > 0 ? `${total} alert(s) need attention` : 'All clear';
+            }
+
+            // ── Render alerts into table ──
+            function renderAlerts(alerts) {
+                const tbl = document.getElementById('alerts-tbody');
+                const eventCount = document.getElementById('alert-event-count');
                 if (!tbl) return;
 
-                // Update event count
-                const eventCount = document.querySelector('.p-md.border-t span');
-                if (eventCount && result.meta) {
-                    eventCount.textContent = 'Showing ' + (result.data ? result.data.length : 0) + ' of ' + result.meta.total_records + ' security events';
+                if (eventCount) {
+                    eventCount.textContent = `Showing ${alerts.length} security alert${alerts.length !== 1 ? 's' : ''}`;
                 }
 
-                if (!result.data || result.data.length === 0) {
-                    tbl.innerHTML = '<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">No records found for this date range.</td></tr>';
+                if (!alerts || alerts.length === 0) {
+                    tbl.innerHTML = '<tr><td colspan="5" class="px-lg py-md text-center text-on-surface-variant">No security alerts for this date range.</td></tr>';
+                    renderInsights([]);
                     bindRowClicks();
                     return;
                 }
 
-                const iconMap = {
-                    'on-time': { icon: 'login', color: 'text-outline' },
-                    'late': { icon: 'schedule', color: 'text-warning' },
-                    'early-leave': { icon: 'logout', color: 'text-secondary' },
-                    'incomplete': { icon: 'scan_delete', color: 'text-error' },
-                    'on-leave': { icon: 'event_busy', color: 'text-outline' },
+                const severityMap = {
+                    'critical': { label: 'Critical', cls: 'text-error bg-error bg-opacity-10' },
+                    'high': { label: 'High', cls: 'text-error bg-error-container' },
+                    'medium': { label: 'Medium', cls: 'text-warning bg-warning bg-opacity-10' },
+                    'low': { label: 'Low', cls: 'text-on-surface-variant bg-surface-container-low' },
                 };
                 const statusMap = {
-                    'on-time': { label: 'Success', cls: 'text-success bg-success bg-opacity-10' },
-                    'late': { label: 'Warning', cls: 'text-warning bg-warning bg-opacity-10' },
-                    'early-leave': { label: 'Warning', cls: 'text-warning bg-warning bg-opacity-10' },
-                    'incomplete': { label: 'Critical', cls: 'text-error bg-error bg-opacity-10' },
-                    'on-leave': { label: 'Info', cls: 'text-secondary bg-secondary bg-opacity-10' },
+                    'open': { label: 'Open', cls: 'text-error bg-error bg-opacity-10' },
+                    'acknowledged': { label: 'Ack\'d', cls: 'text-warning bg-warning bg-opacity-10' },
+                    'resolved': { label: 'Resolved', cls: 'text-success bg-success bg-opacity-10' },
+                };
+                const typeIcons = {
+                    'geofence_violation': { icon: 'location_off', color: 'text-secondary' },
+                    'department_mismatch': { icon: 'swap_horiz', color: 'text-warning' },
+                    'expired_qr': { icon: 'schedule', color: 'text-error' },
+                    'duplicate_scan': { icon: 'content_copy', color: 'text-outline' },
                 };
 
-                tbl.innerHTML = result.data.slice(0, 50).map((row, i) => {
-                    const ic = iconMap[row.status] || { icon: 'info', color: 'text-outline' };
-                    const st = statusMap[row.status] || { label: row.status, cls: 'text-on-surface-variant bg-surface-container-low' };
+                tbl.innerHTML = alerts.slice(0, 50).map((a, i) => {
+                    const ic = typeIcons[a.alert_type] || { icon: 'info', color: 'text-outline' };
+                    const sv = severityMap[a.severity] || { label: a.severity, cls: 'text-on-surface-variant bg-surface-container-low' };
+                    const st = statusMap[a.status] || { label: a.status, cls: 'text-on-surface-variant bg-surface-container-low' };
                     const zebra = i % 2 === 1 ? 'bg-surface-container-low/30' : '';
-                    const typeLabel = row.type === 'leave' ? 'Leave Record' : (row.status || 'Attendance').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                    return `<tr class="hover:bg-surface-container-lowest transition-colors ${zebra}">
-                        <td class="px-lg py-md text-body-md font-label-md">${row.date}</td>
+                    const typeLabel = a.alert_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                    const timestamp = new Date(a.created_at).toLocaleString();
+
+                    return `<tr class="hover:bg-surface-container-lowest transition-colors ${zebra}" data-alert-id="${a._id}">
+                        <td class="px-lg py-md text-body-md font-label-md">${timestamp}</td>
                         <td class="px-lg py-md"><div class="flex items-center gap-sm"><span class="material-symbols-outlined ${ic.color}">${ic.icon}</span><span class="text-body-md">${typeLabel}</span></div></td>
-                        <td class="px-lg py-md text-body-md">${row.employee_name} (${row.department})</td>
+                        <td class="px-lg py-md text-body-md">${a.employee_name} (${a.department_name})</td>
+                        <td class="px-lg py-md"><span class="px-sm py-1 rounded-full ${sv.cls} font-label-md">${sv.label}</span></td>
                         <td class="px-lg py-md"><span class="px-sm py-1 rounded-full ${st.cls} font-label-md">${st.label}</span></td>
                     </tr>`;
                 }).join('');
 
+                renderInsights(alerts);
                 bindRowClicks();
+            }
+
+            // ── Render insights panel ──
+            function renderInsights(alerts) {
+                const container = document.getElementById('insights-container');
+                if (!container) return;
+
+                const geofenceCount = alerts.filter(a => a.alert_type === 'geofence_violation').length;
+                const deptCount = alerts.filter(a => a.alert_type === 'department_mismatch').length;
+                const openCount = alerts.filter(a => a.status === 'open').length;
+
+                let html = '';
+
+                if (geofenceCount > 0) {
+                    html += `<div class="p-md bg-warning bg-opacity-5 border border-warning border-opacity-10 rounded-xl">
+                        <div class="flex gap-sm">
+                            <span class="material-symbols-outlined text-warning mt-0.5">distance</span>
+                            <div>
+                                <p class="font-body-md font-semibold text-warning mb-1">Geofence Violations</p>
+                                <p class="text-body-sm text-on-surface-variant">${geofenceCount} scan(s) occurred outside department geofence perimeters in this period.</p>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                if (deptCount > 0) {
+                    html += `<div class="p-md bg-error-container bg-opacity-5 border border-error border-opacity-10 rounded-xl">
+                        <div class="flex gap-sm">
+                            <span class="material-symbols-outlined text-error mt-0.5">warning</span>
+                            <div>
+                                <p class="font-body-md font-semibold text-error mb-1">Cross-Department Attempts</p>
+                                <p class="text-body-sm text-on-surface-variant">${deptCount} employee(s) attempted to scan QR codes from other departments.</p>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                if (openCount > 0) {
+                    html += `<div class="p-md bg-secondary-container bg-opacity-5 border border-secondary border-opacity-10 rounded-xl">
+                        <div class="flex gap-sm">
+                            <span class="material-symbols-outlined text-secondary mt-0.5">info</span>
+                            <div>
+                                <p class="font-body-md font-semibold text-secondary mb-1">Open Alerts</p>
+                                <p class="text-body-sm text-on-surface-variant">${openCount} alert(s) are still open and need review.</p>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                if (!html) {
+                    html = `<div class="p-md bg-success bg-opacity-5 border border-success border-opacity-10 rounded-xl">
+                        <div class="flex gap-sm">
+                            <span class="material-symbols-outlined text-success mt-0.5">check_circle</span>
+                            <div>
+                                <p class="font-body-md font-semibold text-success mb-1">All Clear</p>
+                                <p class="text-body-sm text-on-surface-variant">No security concerns detected in this period.</p>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                container.innerHTML = html;
             }
 
             // Handle Export Report Button Click
@@ -536,6 +612,12 @@
                         alert('Failed to export report.');
                     }
                 });
+            }
+
+            // Override fetchReport to load both report + security data
+            function fetchReport() {
+                fetchAlerts();
+                fetchStats();
             }
 
             // ── Initial load ──

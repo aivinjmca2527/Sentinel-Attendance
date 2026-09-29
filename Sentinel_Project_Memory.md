@@ -38,10 +38,7 @@ for which files to attach alongside this one.
 - **Two separate client applications:**
   - **Web app** — used ONLY by Managers and Administrators. Built with React.js (or 
     plain wired-up HTML/Tailwind templates), Node.js + Express.js backend.
-  - **Mobile app** — used ONLY by Employees. ~~A completely separate codebase/repository 
-    (Flutter-based, per an old test folder we found and removed — see Section 5).~~ 
-    **SUPERSEDED — see Section 9: mobile app now lives in a `mobile` branch inside this 
-    same repo, not a separate one.**
+  - **Mobile app** — used ONLY by Employees. A completely separate codebase/repository (Flutter-based). **(Re-confirmed: the mobile app is being built in a separate repo).**
 - **Shared database:** MongoDB Atlas (cloud-hosted, free tier), ONE shared instance — 
   not local per-developer databases. Everyone's `.env` MONGO_URI points at the same 
   connection string.
@@ -284,36 +281,20 @@ See `MERGE_PROGRESS.md` at the repo root for exact timestamps, commit hashes, an
 
 ---
 
-## 9. Mobile App — Architecture Change + v1 Scope (NEW, this session)
+## 9. Mobile App — Current Status (Updated)
 
-**Architecture decision CHANGED — flagging explicitly since Section 2 above said the 
-opposite and that was previously "confirmed, don't re-litigate":**
-- OLD decision (Section 2, now superseded for the mobile app's location only): mobile 
-  app is a completely separate repository, not part of Sentinel-Attendance.
-- NEW decision (this session): mobile app lives in a `mobile` branch **inside** the 
-  Sentinel-Attendance repo, under a `/mobile` folder at the repo root. Everything else 
-  from Section 2 still holds — Flutter, employees-only, calls the same Express REST API, 
-  never writes to MongoDB directly.
-- Reason for the change: not stated by the team, just a direct instruction to switch to 
-  a branch-based approach. If this causes friction later (e.g. mixing a Flutter project 
-  and a Node project in one repo's tooling/CI), that trade-off wasn't discussed — worth 
-  revisiting if it becomes a problem.
+**Architecture decision:**
+- The mobile app is being built in a **completely separate repository** (Flutter-based). It does not live in this backend repository. Everything else from Section 2 still holds — Flutter, employees-only, calls the same Express REST API, never writes to MongoDB directly.
 
-**v1 scope decision (this session):** the mobile app's first build is intentionally 
-narrow — login + QR scan to check in/check out, nothing else. This differs from what was 
-implied during the leave-module build: Nandana's `POST /api/leave` (Module 4, Leave 
-Management — see the ownership correction directly below) was originally commented as 
-"called by the mobile app." That mobile-submission use case is deferred to a v2, not 
-built in v1. The backend endpoint already exists and is unaffected — only the mobile 
-client doesn't call it yet.
+**Current Implementation Status:**
+- ✅ **Login:** Implemented and working.
+- ✅ **Leave Requests:** Implemented and working (mobile can now successfully request leave).
+- ❌ **Attendance Checking (QR Scan):** Not yet implemented.
+- ❌ **Geolocation Sharing:** Not yet implemented.
+- ❌ **Face Authentication:** Not yet implemented.
 
-**Mobile app v1 build plan:** see Prompt B in `EAMS_Antigravity_Prompts_v4_Merge_and_
-Mobile.md` — Flutter, `dio` for networking, `flutter_secure_storage` for the JWT, 
-`mobile_scanner` for QR capture. Three screens: login, home (today's status + 
-check-in/out button), scanner. Branch created off `main` (assumes `main` is fully merged 
-and tested first — see Section 7 merge order).
-
-**Status:** branch/prompt written, not yet executed as of this handoff.
+**Next Steps for Mobile:**
+The immediate priority for the mobile app is implementing the Attendance Checking flow (QR scanning) and Geolocation sharing to interact with the already-completed backend API (`POST /api/attendance/checkin` and `checkout`). Face authentication can be tackled either alongside this or as a follow-up enhancement.
 
 ---
 
