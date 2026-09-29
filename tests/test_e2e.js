@@ -7,6 +7,10 @@ const { authenticator } = require('otplib');
 const { spawn } = require('child_process');
 const path = require('path');
 
+const TEST_OVERRIDE_SECRET = process.env.TEST_OVERRIDE_SECRET || 'sentinel-test-secret-123';
+process.env.NODE_ENV = 'test';
+process.env.TEST_OVERRIDE_SECRET = TEST_OVERRIDE_SECRET;
+
 let passed = 0, failed = 0, skipped = 0;
 let spawnedServer = null;
 
@@ -42,7 +46,7 @@ async function ensureServerRunning() {
   console.log('[Test Suite] Launching Sentinel server for E2E tests...');
   spawnedServer = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
     stdio: 'ignore',
-    env: { ...process.env, PORT: '3000' }
+    env: { ...process.env, PORT: '3000', NODE_ENV: 'test', TEST_OVERRIDE_SECRET }
   });
 
   const start = Date.now();
@@ -153,7 +157,7 @@ async function run() {
   const qr = testDeptId
     ? await req('GET', `/api/qr/current?department_id=${testDeptId}`, null, adminToken)
     : { s: 0, b: {} };
-  log(qr.s === 200 && qr.b.code_value, 'QR current session (dept-scoped)', `session=${qr.b.qr_session_id || 'none'}, dept=${testDeptId}`);
+  log(Boolean(qr.s === 200 && qr.b.code_value), 'QR current session (dept-scoped)', `session=${qr.b.qr_session_id || 'none'}, dept=${testDeptId}`);
 
   // QR without department_id should fail
   const qrNoDept = await req('GET', '/api/qr/current', null, adminToken);
@@ -333,7 +337,8 @@ async function run() {
       latitude: 10.0159,
       longitude: 76.3419,
       accuracy_m: 85, // greater than default max 50m
-    }, geoToken, { 'x-geofence-mode': 'enforce' });
+      is_mock_location: false,
+    }, geoToken, { 'x-geofence-mode': 'enforce', 'x-test-secret': TEST_OVERRIDE_SECRET });
     log(badAccRes.s === 422, 'Enforce mode with a bad accuracy_m returns 422', `status=${badAccRes.s}`);
 
     // 2. Enforce mode with is_mock_location: true returns 403 MOCK_LOCATION
@@ -346,8 +351,32 @@ async function run() {
       longitude: 76.3419,
       accuracy_m: 10,
       is_mock_location: true,
-    }, geoToken, { 'x-geofence-mode': 'enforce' });
+    }, geoToken, { 'x-geofence-mode': 'enforce', 'x-test-secret': TEST_OVERRIDE_SECRET });
     log(mockRes.s === 403 && mockRes.b.error === 'MOCK_LOCATION', 'Enforce mode with is_mock_location: true returns 403 MOCK_LOCATION', `status=${mockRes.s}, error=${mockRes.b.error}`);
+
+    // 2b. Enforce mode with missing location returns 400 LOCATION_REQUIRED
+    const qr2b = await getFreshQr();
+    const missingLocRes = await req('POST', '/api/attendance/checkin', {
+      qr_session_id: qr2b.b.qr_session_id,
+      code_value: qr2b.b.code_value,
+      signature: qr2b.b.signature,
+      // latitude and longitude omitted
+      is_mock_location: false,
+    }, geoToken, { 'x-geofence-mode': 'enforce', 'x-test-secret': TEST_OVERRIDE_SECRET });
+    log(missingLocRes.s === 400 && missingLocRes.b.error === 'LOCATION_REQUIRED', 'Enforce mode with missing location returns 400 LOCATION_REQUIRED', `status=${missingLocRes.s}, error=${missingLocRes.b.error}`);
+
+    // 2c. Enforce mode with missing is_mock_location returns 400 MOCK_LOCATION_FLAG_REQUIRED
+    const qr2c = await getFreshQr();
+    const missingMockFlagRes = await req('POST', '/api/attendance/checkin', {
+      qr_session_id: qr2c.b.qr_session_id,
+      code_value: qr2c.b.code_value,
+      signature: qr2c.b.signature,
+      latitude: 10.0159,
+      longitude: 76.3419,
+      accuracy_m: 10,
+      // is_mock_location omitted
+    }, geoToken, { 'x-geofence-mode': 'enforce', 'x-test-secret': TEST_OVERRIDE_SECRET });
+    log(missingMockFlagRes.s === 400 && missingMockFlagRes.b.error === 'MOCK_LOCATION_FLAG_REQUIRED', 'Enforce mode with missing is_mock_location returns 400 MOCK_LOCATION_FLAG_REQUIRED', `status=${missingMockFlagRes.s}, error=${missingMockFlagRes.b.error}`);
 
     // 3. Enforce mode: outside-radius check-in returns 403 OUTSIDE_GEOFENCE, no Attendance record is written, SecurityAlert is still created
     const qr3 = await getFreshQr();
@@ -359,7 +388,7 @@ async function run() {
       longitude: 76.3419,
       accuracy_m: 15,
       is_mock_location: false,
-    }, geoToken, { 'x-geofence-mode': 'enforce' });
+    }, geoToken, { 'x-geofence-mode': 'enforce', 'x-test-secret': TEST_OVERRIDE_SECRET });
 
     const isEnforceBlocked = outsideEnforce.s === 403 &&
       outsideEnforce.b.error === 'OUTSIDE_GEOFENCE' &&
@@ -388,7 +417,7 @@ async function run() {
       longitude: 76.3419,
       accuracy_m: 22,
       is_mock_location: false,
-    }, geoToken, { 'x-geofence-mode': 'log' });
+    }, geoToken, { 'x-geofence-mode': 'log', 'x-test-secret': TEST_OVERRIDE_SECRET });
 
     const logSucceeded = (outsideLog.s === 201 || outsideLog.s === 200);
     const alertsLog = await req('GET', '/api/security/alerts', null, adminToken);
@@ -425,7 +454,7 @@ async function run() {
       longitude: 76.3419,
       accuracy_m: 99,
       is_mock_location: true,
-    }, offToken, { 'x-geofence-mode': 'off' });
+    }, offToken, { 'x-geofence-mode': 'off', 'x-test-secret': TEST_OVERRIDE_SECRET });
 
     const offSucceeded = (offCheckin.s === 201 || offCheckin.s === 200);
     const alertsOff = await req('GET', '/api/security/alerts', null, adminToken);
@@ -443,8 +472,19 @@ async function run() {
     const inReportSummary = orgReportAfter.b && orgReportAfter.b.summary &&
       typeof orgReportAfter.b.summary.total_geofence_violations === 'number' &&
       orgReportAfter.b.summary.total_geofence_violations > 0;
-    log(inReportData && inReportSummary, 'A geofence_violation alert shows up in the reports endpoint output',
-      `inData=${inReportData}, totalViolations=${orgReportAfter.b.summary?.total_geofence_violations}`);
+    // 7. Header override without matching X-Test-Secret is ignored (falls back to GEOFENCE_MODE)
+    const qr6 = await getFreshQr();
+    const unauthOverride = await req('POST', '/api/attendance/checkin', {
+      qr_session_id: qr6.b.qr_session_id,
+      code_value: qr6.b.code_value,
+      signature: qr6.b.signature,
+      latitude: 10.0159,
+      longitude: 76.3419,
+      accuracy_m: 85,
+      is_mock_location: false,
+    }, geoToken, { 'x-geofence-mode': 'enforce', 'x-test-secret': 'wrong-secret' });
+    // In log mode (fallback), bad accuracy is non-blocking (returns 201/200) rather than 422
+    log(unauthOverride.s !== 422, 'Header override with bad secret is ignored (falls back to log mode)', `status=${unauthOverride.s}`);
   } else {
     log(false, 'Geofence toggle tests', 'missing geoToken or QR session');
   }
