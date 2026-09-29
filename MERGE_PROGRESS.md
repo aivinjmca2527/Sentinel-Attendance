@@ -121,3 +121,32 @@ Updated after every step; commit+push immediately after each entry.
   - Attendance records load with auth — ✅
 - **Backend files modified:** None (pure frontend-wiring task as specified)
 - **Status:** All frontend templates are now fully wired to the live API with proper authentication.
+
+
+
+### Entry 8 — Geofence Toggle, Accuracy & Mock-Location Checks (developed directly on `main`, no branch merge)
+- **Timestamp:** 2026-09-29 (exact time not logged)
+- **Action:** Extended the pre-existing (log-only, per-department) geofence check with a `GEOFENCE_MODE` toggle (`off` / `log` / `enforce`), an `accuracy_m` threshold check, and an `is_mock_location` check.
+- **Behavior added:**
+  - `off`: geofence check skipped entirely.
+  - `log`: unchanged pre-existing behavior — outside-radius check-ins succeed, `SecurityAlert` (`geofence_violation`) logged.
+  - `enforce`: outside-radius check-ins rejected `403 OUTSIDE_GEOFENCE`, no `Attendance` record written, `SecurityAlert` still logged. Bad `accuracy_m` → `422`. `is_mock_location: true` → `403 MOCK_LOCATION`.
+  - Current `GEOFENCE_MODE` exposed (read-only) on `GET /api/dashboard/summary`.
+  - `geofence_violation` alerts now surfaced in `GET /api/reports/organisation`.
+- **Files touched:** `modules/attendance/verificationSteps.js`, `modules/attendance/controller.js`, `shared/config/geofence.js` (new), `shared/models/SecurityAlert.js`, `modules/dashboard/controller.js`, `modules/reports/*`, `.env.example`, `docs/API_CONTRACT_ATTENDANCE.md`, `tests/test_e2e.js`.
+- **Test results:** ✅ PASS — 38/38 integration tests (initial pass).
+- **Status:** Feature complete but not yet security-reviewed.
+
+### Entry 9 — Security Review Fixes (Claude review of Entry 8, applied directly on `main`)
+- **Timestamp:** 2026-09-29 (exact time not logged)
+- **Action:** A Claude Sonnet 4.6 security review of the Entry 8 diff found 5 issues; all 5 were fixed.
+- **Issues found & fixed:**
+  1. **Critical** — `X-Geofence-Mode` / `X-Geofence-Max-Accuracy` header overrides worked whenever `NODE_ENV !== 'production'`, letting any client on a shared dev/staging server silently disable geofencing. Fixed: overrides now require `NODE_ENV === 'test'` **and** a matching `X-Test-Secret` header (`TEST_OVERRIDE_SECRET` env var); bad/missing secret falls back to the real `GEOFENCE_MODE`.
+  2. **High** — omitting `latitude`/`longitude` silently skipped the geofence check even in `enforce` mode. Fixed: `enforce` mode now requires both fields, `400 LOCATION_REQUIRED` if missing.
+  3. **High** — `is_mock_location` only blocked when the client sent `true`; a client could omit it or send `false` to bypass. Fixed: `enforce` mode now requires the field to be explicitly present as a boolean, `400 MOCK_LOCATION_FLAG_REQUIRED` if absent. (Documented as a client-reported heuristic, not a server-verified guarantee — full fix would need device attestation, out of scope for now.)
+  4. **Medium** — `SecurityAlert` write failures were only `console.error`'d and could vanish silently in production. Fixed: structured `[ALERT_WRITE_FAILURE]` log line with employee_id, alert_type, and error message.
+  5. **Low** — `latitude || null` incorrectly treated a valid `latitude: 0` (equator) as missing. Fixed: changed to `!= null` check.
+- **Test suite updated:** `tests/test_e2e.js` now sends `X-Test-Secret` and an explicit `is_mock_location` boolean on enforce-mode check-ins, per the new requirements from fixes #1 and #3.
+- **Test results:** ✅ PASS — 41/41 (0 failed, 0 skipped).
+- **Note:** `TEST_OVERRIDE_SECRET` must be set wherever this test suite runs (local + CI), or override headers are silently ignored and enforce-mode tests will run against whatever `GEOFENCE_MODE` is actually set in that environment.
+- **Status:** Geofence toggle feature is complete and security-reviewed. Ready to move to mobile QR/GPS integration (Prompt D).

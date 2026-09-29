@@ -23,10 +23,10 @@ Performs verification and records the start of an employee's workday.
 | `code_value` | `string` | **Yes** | Payload value scanned from the dynamic QR code. |
 | `signature` | `string` | **Yes** | HMAC SHA-256 hex signature from the QR code. |
 | `employee_id` | `string` | Optional* | MongoDB ObjectId of employee (*required if not set in auth token). |
-| `latitude` | `number` | Optional | Current device latitude (e.g. `12.9716`). |
-| `longitude` | `number` | Optional | Current device longitude (e.g. `77.5946`). |
+| `latitude` | `number` | Optional* | Current device latitude (e.g. `12.9716`). *Required in `enforce` mode. |
+| `longitude` | `number` | Optional* | Current device longitude (e.g. `77.5946`). *Required in `enforce` mode. |
 | `accuracy_m` | `number` | Optional | Horizontal GPS accuracy in meters (e.g. `15.5`). |
-| `is_mock_location` | `boolean` | Optional | Mock/spoofed location indicator from client device. |
+| `is_mock_location` | `boolean` | Optional* | Mock/spoofed location indicator from client device. *Required boolean (`true`/`false`) in `enforce` mode. |
 
 #### Response: Success (`201 Created`)
 ```json
@@ -42,7 +42,7 @@ Performs verification and records the start of an employee's workday.
 *Note on `verification_method`: Set to `'qr_geo'` if both `latitude` and `longitude` are present, otherwise `'qr_only'`.*
 
 #### Response: Error Status Codes
-- `400 Bad Request`: Missing required fields (`qr_session_id`, `code_value`, `signature`, or `employee_id`).
+- `400 Bad Request`: Missing required fields (`qr_session_id`, `code_value`, `signature`, `employee_id`), missing coordinates in enforce mode (`{ "error": "LOCATION_REQUIRED" }`), or missing boolean mock flag in enforce mode (`{ "error": "MOCK_LOCATION_FLAG_REQUIRED" }`).
 - `401 Unauthorized`: QR session not found, `code_value` mismatch, or signature tampering detected.
 - `403 Forbidden`: 
   - Department mismatch (`"Department mismatch: you cannot check in with another department's QR code."`).
@@ -71,10 +71,10 @@ Performs verification, updates today's attendance record with check-out timestam
 | `code_value` | `string` | **Yes** | Payload value scanned from the dynamic QR code. |
 | `signature` | `string` | **Yes** | HMAC SHA-256 hex signature from the QR code. |
 | `employee_id` | `string` | Optional* | MongoDB ObjectId of employee (*required if not set in auth token). |
-| `latitude` | `number` | Optional | Current device latitude. |
-| `longitude` | `number` | Optional | Current device longitude. |
+| `latitude` | `number` | Optional* | Current device latitude. *Required in `enforce` mode. |
+| `longitude` | `number` | Optional* | Current device longitude. *Required in `enforce` mode. |
 | `accuracy_m` | `number` | Optional | Horizontal GPS accuracy in meters. |
-| `is_mock_location` | `boolean` | Optional | Mock/spoofed location indicator. |
+| `is_mock_location` | `boolean` | Optional* | Mock/spoofed location indicator. *Required boolean (`true`/`false`) in `enforce` mode. |
 
 #### Response: Success (`200 OK`)
 ```json
@@ -90,7 +90,7 @@ Performs verification, updates today's attendance record with check-out timestam
 *Note on `verification_method`: If `latitude` and `longitude` are supplied and the record was previously `'qr_only'`, it is updated to `'qr_geo'`.*
 
 #### Response: Error Status Codes
-- `400 Bad Request`: Missing required fields, or no check-in record found for today.
+- `400 Bad Request`: Missing required fields, missing coordinates in enforce mode (`{ "error": "LOCATION_REQUIRED" }`), missing boolean mock flag in enforce mode (`{ "error": "MOCK_LOCATION_FLAG_REQUIRED" }`), or no check-in record found for today.
 - `401 Unauthorized`: Invalid QR session or signature.
 - `403 Forbidden`: Department mismatch, mock location in enforce mode, or outside geofence boundary in enforce mode.
 - `404 Not Found`: Employee not found.
@@ -122,9 +122,13 @@ Configured via environment variables (`shared/config/geofence.js`):
 2. **Mode Check:**
    - If `off`: Exits immediately without performing any checks.
    - If `enforce`:
+     - If `typeof is_mock_location !== 'boolean'`, throws `400` with body `{ error: "MOCK_LOCATION_FLAG_REQUIRED" }`.
      - If `is_mock_location === true`, throws `403` with body `{ error: "MOCK_LOCATION" }`.
      - If `accuracy_m > GEOFENCE_MAX_ACCURACY_M`, throws `422` with body `{ error: "ACCURACY_TOO_LOW" }`.
-3. **Missing Location Handling:** If `latitude == null` or `longitude == null`, the step exits quietly without throwing or flagging an alert.
+   *(Note: `is_mock_location` is a client-reported heuristic, not a server-verified guarantee, and device attestation is a possible future improvement.)*
+3. **Missing Location Handling:**
+   - In `enforce` mode: If `latitude == null` or `longitude == null`, throws HTTP `400` with body `{ error: "LOCATION_REQUIRED" }`.
+   - In `off` and `log` modes: If `latitude == null` or `longitude == null`, the step exits quietly without throwing or flagging an alert.
 4. **Department Lookup:** 
    - Retrieves `department_id` from `ctx.employee.department_id` (fallback to `ctx.qrSession.department_id`).
    - Queries `Department.findById(empDeptId).lean()`.

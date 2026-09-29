@@ -212,8 +212,8 @@ async function verifyGeofence(ctx) {
   const { latitude, longitude, accuracy_m, is_mock_location } = ctx.body;
 
   // Store location on context regardless (controller will save to attendance record)
-  ctx.latitude = latitude || null;
-  ctx.longitude = longitude || null;
+  ctx.latitude = latitude != null ? latitude : null;
+  ctx.longitude = longitude != null ? longitude : null;
   ctx.accuracy_m = accuracy_m != null ? Number(accuracy_m) : null;
   ctx.is_mock_location = is_mock_location != null ? Boolean(is_mock_location) : null;
 
@@ -225,6 +225,13 @@ async function verifyGeofence(ctx) {
   }
 
   if (mode === 'enforce') {
+    if (typeof is_mock_location !== 'boolean') {
+      const err = new Error('MOCK_LOCATION_FLAG_REQUIRED');
+      err.status = 400;
+      err.body = { error: 'MOCK_LOCATION_FLAG_REQUIRED' };
+      throw err;
+    }
+
     if (is_mock_location === true) {
       const err = new Error('MOCK_LOCATION');
       err.status = 403;
@@ -241,6 +248,13 @@ async function verifyGeofence(ctx) {
         throw err;
       }
     }
+  }
+
+  if (mode === 'enforce' && (latitude == null || longitude == null)) {
+    const err = new Error('Location required when geofence is enforced.');
+    err.status = 400;
+    err.body = { error: 'LOCATION_REQUIRED' };
+    throw err;
   }
 
   // If no location sent by client, skip geofence check
@@ -289,7 +303,9 @@ async function verifyGeofence(ctx) {
         },
       });
     } catch (alertErr) {
-      console.error('[Geofence] Failed to log geofence alert:', alertErr.message);
+      console.error(
+        `[ALERT_WRITE_FAILURE] employee_id=${ctx.employee_id} alert_type=geofence_violation error=${alertErr.message}`
+      );
     }
 
     if (mode === 'enforce') {

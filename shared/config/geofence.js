@@ -11,9 +11,25 @@
  *              or using mock locations (403). Still logs security alerts.
  */
 
+function isTestOverrideAuthorized(reqOrCtx) {
+  if (process.env.NODE_ENV !== 'test' || !reqOrCtx) {
+    return false;
+  }
+  const configuredSecret = process.env.TEST_OVERRIDE_SECRET;
+  if (!configuredSecret) {
+    return false;
+  }
+  const headers = reqOrCtx.headers || (reqOrCtx.req && reqOrCtx.req.headers);
+  if (!headers) {
+    return false;
+  }
+  const providedSecret = headers['x-test-secret'] || headers['X-Test-Secret'];
+  return Boolean(providedSecret && providedSecret === configuredSecret);
+}
+
 function getGeofenceMode(reqOrCtx) {
-  // Allow request header override in non-production environments for automated testing
-  if (process.env.NODE_ENV !== 'production' && reqOrCtx) {
+  // Allow request header override in test environment when authorized by secret
+  if (isTestOverrideAuthorized(reqOrCtx)) {
     const headers = reqOrCtx.headers || (reqOrCtx.req && reqOrCtx.req.headers);
     if (headers && headers['x-geofence-mode']) {
       const override = headers['x-geofence-mode'].toLowerCase().trim();
@@ -31,7 +47,7 @@ function getGeofenceMode(reqOrCtx) {
 }
 
 function getMaxAccuracy(reqOrCtx) {
-  if (process.env.NODE_ENV !== 'production' && reqOrCtx) {
+  if (isTestOverrideAuthorized(reqOrCtx)) {
     const headers = reqOrCtx.headers || (reqOrCtx.req && reqOrCtx.req.headers);
     if (headers && headers['x-geofence-max-accuracy']) {
       const val = parseFloat(headers['x-geofence-max-accuracy']);

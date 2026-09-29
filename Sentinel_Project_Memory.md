@@ -83,8 +83,8 @@ same as it already does for QR signature/expiry — a phone can't be trusted to 
   `verifyQrSignatureAndExpiry`, `verifyNoDuplicateScan`) run in sequence, rather than one 
   large function — so that adding `verifyFaceMatch` and `verifyGeofence` later is just 
   adding two more functions to the array, not a rewrite.
-- **Nobody has built face auth or geofencing yet.** This is intentionally deferred to a 
-  future phase. Do not start building it unless explicitly asked.
+- **Geofencing is now built (see Section 17).** Face auth is still deferred to a future 
+  phase; do not start building it unless explicitly asked.
 
 ---
 
@@ -232,7 +232,7 @@ recomputes both on any timestamp write.
 
 ---
 
-## 7. Merge Plan (about to be executed — this is the current/next phase)
+## 7. Merge Plan (COMPLETED 2026-09-02; originally: about to be executed — this is the current/next phase)
 
 Merge order matters because of dependencies. One branch at a time, testing after each, 
 NOT all four at once:
@@ -367,7 +367,7 @@ inference from documents), as of this session:
   - Minor cosmetic issue: the route-mount comment in her `server.js` still says 
     `// Melbin` (leftover from the pre-correction module-ownership mixup) even though 
     the route is hers and working — harmless, but worth a one-line fix during merge.
-**Bottom line, updated:** Aivin, Amina, and Nandana are ready to merge as-is. Melbin's 
+**Bottom line (HISTORICAL, now COMPLETED - see Section 14):** Aivin, Amina, and Nandana are ready to merge as-is. Melbin's 
 restructure is functionally done and verified, just needs the leftover-file cleanup — 
 which is now built into the start of Prompt A. **All four branches are effectively ready 
 — running Prompt A (which starts with the Melbin cleanup) is the next and only remaining 
@@ -424,3 +424,133 @@ project — see attached memory file for full context, and keep it updated as we
 the instruction at the top of it. We're now at the merge phase (Section 7 in the memory 
 file). [describe whatever error or question you actually have]."
 
+---
+
+## 14. Post-Merge Reconciliation (added 2026-09-28) - source of truth is MERGE_PROGRESS.md
+
+Facts from `MERGE_PROGRESS.md` that older sections and the per-person status files
+(`STATUS_REPORT_AIVIN.md`, `PROGRESS_AIVIN.md`) do NOT reflect. Those two Aivin files are
+OUTDATED (written 31 Aug, before merging): they say auth is a stub, end-to-end tests are
+blocked, and PR #1 is open. All of that is resolved.
+
+- **Merges done locally with --no-ff on 2026-09-02** in order Melbin, Aivin, Nandana, Amina.
+  Aivin's PR #1 may be stale/open on GitHub - check and close it.
+- **DB architecture conflict (Entry 3):** Melbin's auth/employees modules were built on
+  SQLite, not MongoDB. They were rewritten to Mongoose. `shared/config/db.js` now uses
+  Mongoose with automatic fallback to `mongodb-memory-server`. `employee_id` was added to the
+  JWT payload (needed by the check-in route).
+- **Nandana's dev auth bypass REMOVED (Entry 4):** `modules/leave/authHelpers.js` now wraps the
+  live JWT middleware (normalises `req.user.id` to `_id`, adds `employee_id`, `department_id`).
+  Her extra `LeaveBalance` model + `GET /api/leave/balance` was kept.
+- **Dashboard/reports guarded (Entry 5):** `requireAuth` then `requireRole('admin')`;
+  `roles.flat()` and case normalisation added to the role middleware.
+- **E2E suite (Entry 6):** `tests/test_e2e.js`, 25/25 passing. TOTP verify bug fixed.
+- **Frontend wiring (Entry 7, 2026-09-08):** all templates use the `authHeaders()` pattern
+  (Bearer token from localStorage, redirect to login on 401).
+- **Frontend stack clarification:** vanilla HTML + Tailwind CDN, NOT React.
+- **QR timing:** rotation ~5s, expiry 10s, HMAC-SHA256 signed via `QR_SIGNING_SECRET`.
+- **Attendance `verification_method` enum in code:** `qr_only` / `qr_geo` / `qr_geo_face`
+  (Section 3 names only `qr_only` and `qr_geo_face`; the code's three values are correct).
+- **Env vars:** `MONGO_URI`, `JWT_SECRET`, `QR_SIGNING_SECRET` (required),
+  `CHECK_IN_CUTOFF` (default 09:00), `STANDARD_WORK_HOURS` (default 8), `DISABLE_TOTP`
+  (testing only). Make sure `.env.example` lists them.
+- **Module ownership reminder:** Melbin = Module 1 (auth + employees), Nandana = Module 4
+  (leave). Aivin's status report wrongly says Nandana owns auth.
+
+### Open loose ends
+1. **SECURITY:** remove/disable `DISABLE_TOTP`, the "Skip Authenticator" button and the
+   `000000` bypass code before any demo or submission. TOTP must be enforced for admin/manager.
+2. Fix the stale `// Melbin` comment on the leave route mount in `server.js`.
+3. Close or refresh stale PR #1.
+4. Update `.env.example` with the QR/attendance variables.
+
+---
+
+## 15. Status as of 2026-09-28 (superseded further by Section 17 - see that for geofencing)
+
+| Area | Status |
+|---|---|
+| Web backend (7 modules) | COMPLETE, merged on `main`, 25/25 E2E |
+| Web frontend (7 templates) | COMPLETE, wired to API |
+| Mobile: login | DONE |
+| Mobile: leave requests | DONE |
+| Mobile: QR scan check-in/out | NOT STARTED |
+| Mobile: GPS sharing | NOT STARTED |
+| Mobile: face authentication | NOT STARTED |
+| Backend: `verifyGeofence` step | NOT STARTED (pipeline slot ready in `verificationSteps.js`) |
+| Backend: `verifyFaceMatch` step | NOT STARTED |
+
+### Plan agreed at the time (now executed - see Section 17)
+Principle: the SERVER decides pass/fail; the phone never self-reports "face_verified" or
+"inside_geofence". Lock the API contract first, then parallelise backend (geofence) and
+mobile (QR scanner + GPS) as separate tracks, merging one at a time.
+
+---
+
+## 16. Suggested First Message in a New Chat
+"Continuing the Sentinel EAMS project - see the attached memory file. Section 17 is the
+latest: web backend geofencing is complete and security-reviewed. We are on the mobile
+QR/geolocation phase. Keep the memory file updated as we go."
+
+---
+
+## 17. Geofencing: Built, Fixed, and Security-Reviewed (added 2026-09-29)
+
+**Status: DONE on `main`** (developed directly on `main`, no feature branch - see
+`MERGE_PROGRESS.md` Entries 8 and 9 for the full log). This supersedes Section 15's
+backend geofence row and the "NOT STARTED" status for `verifyGeofence`.
+
+### What it discovered/actually is (differs from the original plan)
+- **Per-department geofence, not one office-wide setting.** `Department` has
+  `geofence_lat`, `geofence_lng`, `geofence_radius_m` (default 200m) - more flexible than
+  the single `OFFICE_LAT`/`OFFICE_LNG` env-var design originally sketched.
+- **A `SecurityAlert` model** (not originally planned) logs violations: `alert_type` enum
+  `geofence_violation` / `department_mismatch` / `expired_qr` / `duplicate_scan` (only the
+  first two are actually created anywhere), `severity`, `message`, `metadata` (lat/lng,
+  department_id, distance_m, qr_session_id), `status` (open/acknowledged/resolved).
+  Surfaced via alert-stats and list endpoints, and now in `GET /api/reports/organisation`.
+- **`verifyDepartmentMatch`** (separate, pre-existing check) is the blocking pattern
+  `verifyGeofence`'s enforce mode was modeled on - throws 403 + logs an alert in one step.
+
+### GEOFENCE_MODE (off / log / enforce)
+- **off:** geofence check skipped.
+- **log (default):** outside-radius check-ins still succeed; `SecurityAlert` logged.
+- **enforce:** outside-radius check-ins rejected `403 OUTSIDE_GEOFENCE`, no `Attendance`
+  record written, alert still logged. Also in enforce mode: bad `accuracy_m` -> `422`;
+  `is_mock_location: true` -> `403 MOCK_LOCATION`; missing `latitude`/`longitude` ->
+  `400 LOCATION_REQUIRED`; missing `is_mock_location` field entirely ->
+  `400 MOCK_LOCATION_FLAG_REQUIRED`.
+- Current mode is exposed read-only on `GET /api/dashboard/summary`.
+- Test-only override: `X-Geofence-Mode` / `X-Geofence-Max-Accuracy` headers work ONLY when
+  `NODE_ENV === 'test'` AND a matching `X-Test-Secret` header equals
+  `process.env.TEST_OVERRIDE_SECRET`. Must be set in any environment running
+  `tests/test_e2e.js` (local + CI) or enforce-mode tests silently run against whatever
+  `GEOFENCE_MODE` is really set.
+
+### Security review (Claude) findings, all fixed (see MERGE_PROGRESS.md Entry 9)
+1. Critical: header-override bypass reachable by any client when `NODE_ENV !== 'production'`
+   - fixed as above (test-mode + secret gated).
+2. High: omitting lat/lng silently skipped enforce mode - fixed, now `400 LOCATION_REQUIRED`.
+3. High: `is_mock_location` is a client-self-reported flag - can't be fully server-verified;
+   made required in enforce mode so it can't be omitted, but this is a heuristic, not a
+   guarantee. Real fix would be device attestation (Play Integrity / DeviceCheck) - not built.
+4. Medium: `SecurityAlert` write failures on a real violation were only `console.error`'d,
+   could vanish silently - now a structured `[ALERT_WRITE_FAILURE]` log line.
+5. Low: `latitude || null` treated valid `latitude: 0` as missing - fixed to `!= null`.
+
+### Test results
+41/41 integration tests passing, 0 skipped, after both the initial implementation (38/38)
+and the security-fix pass (41/41, three new tests added for the missing-location,
+missing-mock-flag, and header-override-with-bad-secret cases).
+
+### Not done / explicitly out of scope for this pass
+- Mock-location detection is still just a trusted client flag, not server-verified.
+- Device attestation (Play Integrity / DeviceCheck) - future work if spoofing becomes a
+  real concern.
+- Face auth (`verifyFaceMatch`) - separate future track, unstarted.
+- Mobile side (QR scanner + GPS capture calling these endpoints) - NEXT UP, not yet built.
+
+### Immediate next step
+Mobile QR check-in/checkout + GPS capture, in the separate Flutter repo, using the field
+names in `docs/API_CONTRACT_ATTENDANCE.md` (`latitude`, `longitude`, `accuracy_m`,
+`is_mock_location`) and handling all the new enforce-mode error codes above.
