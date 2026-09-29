@@ -73,7 +73,54 @@ async function getRecentScans(req, res) {
   }
 }
 
+/**
+ * POST /api/qr/regenerate-keys
+ * Forces immediate rotation of security keys.
+ */
+async function regenerateKeys(req, res) {
+  try {
+    const session = await qrService.forceRotateSession();
+    return res.json({
+      message: 'Security keys regenerated successfully.',
+      qr_session_id: session._id,
+      code_value: session.code_value,
+      signature: session.signature,
+      expires_at: session.expires_at,
+    });
+  } catch (err) {
+    console.error('[QR Controller] regenerateKeys error:', err.message);
+    return res.status(500).json({ error: 'Failed to regenerate security keys.' });
+  }
+}
+
+/**
+ * GET /api/qr/settings
+ */
+async function getSettings(req, res) {
+  try {
+    return res.json(qrService.getSettings());
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch settings.' });
+  }
+}
+
+/**
+ * POST /api/qr/settings
+ */
+async function updateSettings(req, res) {
+  try {
+    const updated = qrService.updateSettings(req.body || {});
+    return res.json({ message: 'Settings updated successfully.', settings: updated });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to update settings.' });
+  }
+}
+
 module.exports = {
   getCurrentQR,
   getRecentScans,
+  regenerateKeys,
+  getSettings,
+  updateSettings,
 };
+

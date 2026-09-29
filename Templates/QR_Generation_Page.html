@@ -100,13 +100,67 @@
         }
     }catch(_e){}</script><meta charset="utf-8">
 <link rel="stylesheet" href="/Templates/shared/styles.css">
-</head><body class="bg-background text-on-background min-h-screen flex">
+</head><body class="bg-background text-on-background min-h-screen flex relative">
+<!-- Toast Container -->
+<div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
 <!-- Sidebar -->
 <div id="sidebar-container" class="hidden md:block"></div>
 <!-- Main Content Area -->
 <main class="flex-1 p-margin-mobile md:p-margin-desktop w-full max-w-container-max mx-auto overflow-x-hidden">
 <!-- Header -->
-<div class="flex items-center justify-between mb-lg py-sm border-b border-border"><div class="flex items-center gap-md bg-surface-variant px-md py-sm rounded-lg w-96"><span class="material-symbols-outlined text-on-surface-variant">search</span><input type="text" placeholder="Search kiosks or logs..." class="bg-transparent border-none focus:ring-0 text-body-md w-full"></div><div class="flex items-center gap-lg"><button class="relative p-sm hover:bg-surface-variant rounded-full transition-colors"><span class="material-symbols-outlined">notifications</span><span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span></button><div class="flex items-center gap-sm border-l border-border pl-lg"><div class="text-right hidden md:block"><p class="text-body-md font-semibold text-on-surface">Admin User</p><p class="text-label-sm text-on-surface-variant">System Administrator</p></div><div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold">AU</div></div></div></div><header class="mb-xl border-b border-border pb-lg">
+<div class="flex items-center justify-between mb-lg py-sm border-b border-border">
+  <div class="flex items-center gap-md bg-surface-variant px-md py-sm rounded-lg w-96">
+    <span class="material-symbols-outlined text-on-surface-variant">search</span>
+    <input id="kiosk-search-input" type="text" placeholder="Search kiosks or logs..." class="bg-transparent border-none focus:ring-0 text-body-md w-full outline-none">
+  </div>
+  <div class="flex items-center gap-lg">
+    <div class="relative">
+      <button id="btn-notifications" class="relative p-sm hover:bg-surface-variant rounded-full transition-colors cursor-pointer">
+        <span class="material-symbols-outlined">notifications</span>
+        <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+      </button>
+      <div id="notifications-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-surface border border-border rounded-xl shadow-xl p-md z-50 flex flex-col gap-sm">
+        <div class="flex items-center justify-between border-b border-border pb-xs">
+          <span class="font-headline-sm text-sm font-bold text-on-surface">System Notifications</span>
+          <span class="text-xs bg-secondary/10 text-secondary font-semibold px-2 py-0.5 rounded-full">3 New</span>
+        </div>
+        <div class="flex flex-col gap-xs max-h-60 overflow-y-auto custom-scrollbar">
+          <div class="p-xs hover:bg-surface-container-low rounded-lg flex items-start gap-sm">
+            <span class="material-symbols-outlined text-success text-[18px] mt-0.5">verified</span>
+            <div>
+              <p class="text-xs font-semibold text-on-surface">QR Rotation Active</p>
+              <p class="text-[11px] text-on-surface-variant">HMAC security keys signed and rotating.</p>
+            </div>
+          </div>
+          <div class="p-xs hover:bg-surface-container-low rounded-lg flex items-start gap-sm">
+            <span class="material-symbols-outlined text-secondary text-[18px] mt-0.5">aod</span>
+            <div>
+              <p class="text-xs font-semibold text-on-surface">Kiosk #1 Online</p>
+              <p class="text-[11px] text-on-surface-variant">Main Entrance terminal reporting 100% heartbeat.</p>
+            </div>
+          </div>
+          <div class="p-xs hover:bg-surface-container-low rounded-lg flex items-start gap-sm">
+            <span class="material-symbols-outlined text-warning text-[18px] mt-0.5">near_me</span>
+            <div>
+              <p class="text-xs font-semibold text-on-surface">Geofencing Active</p>
+              <p class="text-[11px] text-on-surface-variant">50m radius enforced on all check-ins.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-sm border-l border-border pl-lg">
+      <div class="text-right hidden md:block">
+        <p class="text-body-md font-semibold text-on-surface">Admin User</p>
+        <p class="text-label-sm text-on-surface-variant">System Administrator</p>
+      </div>
+      <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold">AU</div>
+    </div>
+  </div>
+</div>
+
+<header class="mb-xl border-b border-border pb-lg">
 <h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">QR Security &amp; Kiosk Management</h2>
 <p class="font-body-lg text-body-lg text-on-surface-variant mt-sm">Configure global settings and monitor physical check-in kiosks.</p>
 </header>
@@ -114,17 +168,6 @@
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-lg">
 <!-- Left Column (Settings & Kiosk Actions) -->
 <div class="lg:col-span-4 flex flex-col gap-lg">
-<!-- Section 0: Department Selector -->
-<section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)] mb-0">
-<div class="flex items-center gap-sm mb-md">
-<span class="material-symbols-outlined text-secondary">corporate_fare</span>
-<h3 class="font-headline-md text-headline-md text-on-surface">Department</h3>
-</div>
-<select id="department-selector" class="w-full px-md py-sm border border-border rounded-lg font-body-md text-on-surface bg-surface-container-low focus:ring-2 focus:ring-secondary focus:border-secondary outline-none transition-all">
-<option value="" disabled selected>Loading departments...</option>
-</select>
-<p class="text-body-sm text-on-surface-variant mt-xs">Each department has its own QR code. Employees can only scan their department's code.</p>
-</section>
 <!-- Section 1: Global QR Settings -->
 <section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
 <div class="flex items-center gap-sm mb-lg">
@@ -136,9 +179,9 @@
 <div class="flex flex-col gap-xs">
 <label class="font-label-md text-label-md text-on-surface-variant flex justify-between">
 <span class="">Regeneration Interval</span>
-<span class="font-bold text-secondary">15s</span>
+<span id="interval-display" class="font-bold text-secondary">15s</span>
 </label>
-<input class="w-full accent-secondary" max="60" min="5" type="range" value="15">
+<input id="interval-slider" class="w-full accent-secondary cursor-pointer" max="60" min="5" type="range" value="15">
 </div>
 <!-- Geolocation Enforcement -->
 <div class="flex items-center justify-between py-sm border-t border-border mt-sm">
@@ -147,7 +190,7 @@
 <p class="font-body-sm text-body-sm text-on-surface-variant">Require users to be within 50m of kiosk.</p>
 </div>
 <label class="relative inline-flex items-center cursor-pointer">
-<input checked="" class="sr-only peer" type="checkbox">
+<input id="toggle-geofence" checked="" class="sr-only peer" type="checkbox">
 <div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
 </label>
 </div>
@@ -158,7 +201,7 @@
 <p class="font-body-sm text-body-sm text-on-surface-variant">Sign QR data to prevent cloning.</p>
 </div>
 <label class="relative inline-flex items-center cursor-pointer">
-<input checked="" class="sr-only peer" type="checkbox">
+<input id="toggle-crypto" checked="" class="sr-only peer" type="checkbox">
 <div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
 </label>
 </div>
@@ -168,14 +211,24 @@
 <section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
 <h3 class="font-headline-sm text-headline-sm text-on-surface mb-md">Kiosk Actions</h3>
 <div class="flex flex-col gap-sm">
-<button class="w-full flex items-center justify-center gap-sm bg-[#0F172A] text-on-primary font-label-md text-label-md py-sm rounded-lg hover:bg-opacity-90 transition-opacity">
+<button id="btn-add-kiosk" class="w-full flex items-center justify-center gap-sm bg-[#0F172A] text-on-primary font-label-md text-label-md py-sm rounded-lg hover:bg-opacity-90 transition-opacity cursor-pointer">
 <span class="material-symbols-outlined text-[18px]">add</span>
-                            Add New Kiosk
-                        </button>
-<button class="w-full flex items-center justify-center gap-sm border border-[#2563EB] text-[#2563EB] font-label-md text-label-md py-sm rounded-lg hover:bg-surface-variant transition-colors">
+    Add New Kiosk
+</button>
+<button id="btn-regenerate-keys" class="w-full flex items-center justify-center gap-sm border border-[#2563EB] text-[#2563EB] font-label-md text-label-md py-sm rounded-lg hover:bg-surface-variant transition-colors cursor-pointer">
 <span class="material-symbols-outlined text-[18px]">refresh</span>
-                            Regenerate All Security Keys
-                        </button>
+    Regenerate All Security Keys
+</button>
+</div>
+</section>
+<!-- Registered Kiosks Overview Card -->
+<section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
+<div class="flex justify-between items-center mb-md">
+  <h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">Active Kiosks</h3>
+  <span id="kiosk-count-badge" class="bg-secondary/10 text-secondary text-xs font-semibold px-2 py-0.5 rounded-full">2 Active</span>
+</div>
+<div id="kiosks-list-container" class="flex flex-col gap-xs max-h-48 overflow-y-auto custom-scrollbar">
+  <!-- Dynamic kiosks will render here -->
 </div>
 </section>
 <!-- Preview Card -->
@@ -204,14 +257,13 @@
 <thead class="bg-surface-bright text-on-surface-variant font-label-md text-label-md border-b border-border">
 <tr>
 <th class="px-lg py-md font-medium">Employee</th>
-<th class="px-lg py-md font-medium">Department</th>
 <th class="px-lg py-md font-medium">Type</th>
 <th class="px-lg py-md font-medium">Status</th>
 <th class="px-lg py-md font-medium">Time</th>
 </tr>
 </thead>
 <tbody id="recent-scans-tbody" class="divide-y divide-border">
-<tr><td colspan="5" class="px-lg py-md text-center text-on-surface-variant">Loading recent scans...</td></tr>
+<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">Loading recent scans...</td></tr>
 </tbody>
 </table>
 </div>
@@ -220,83 +272,285 @@
 </div>
 </main>
 
+<!-- Add Kiosk Modal -->
+<div id="add-kiosk-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-surface rounded-xl border border-border shadow-2xl w-full max-w-md p-lg">
+    <div class="flex items-center justify-between border-b border-border pb-md mb-md">
+      <div class="flex items-center gap-sm">
+        <span class="material-symbols-outlined text-secondary">aod</span>
+        <h3 class="font-headline-md text-headline-md text-on-surface">Add New Kiosk</h3>
+      </div>
+      <button id="close-kiosk-modal-btn" type="button" class="p-xs hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors cursor-pointer">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <form id="add-kiosk-form" class="flex flex-col gap-md">
+      <div>
+        <label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Kiosk Name</label>
+        <input type="text" id="kiosk-name-input" required placeholder="e.g. Lobby Entrance Kiosk #3" class="w-full px-md py-sm bg-surface-container-low border border-border rounded-lg text-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+      </div>
+      <div>
+        <label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Location / Department</label>
+        <input type="text" id="kiosk-location-input" required placeholder="e.g. Building A - Main Reception" class="w-full px-md py-sm bg-surface-container-low border border-border rounded-lg text-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+      </div>
+      <div>
+        <label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Device IP / Serial</label>
+        <input type="text" id="kiosk-ip-input" placeholder="e.g. 192.168.1.150" class="w-full px-md py-sm bg-surface-container-low border border-border rounded-lg text-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+      </div>
+      <div class="flex justify-end gap-sm pt-sm border-t border-border mt-xs">
+        <button type="button" id="cancel-kiosk-modal-btn" class="px-lg py-sm border border-border rounded-lg font-label-md text-on-surface-variant hover:bg-surface-variant transition-colors cursor-pointer">Cancel</button>
+        <button type="submit" class="px-lg py-sm bg-secondary text-on-secondary rounded-lg font-label-md hover:bg-secondary/90 transition-colors cursor-pointer">Register Kiosk</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script src="/Templates/shared/auth.js"></script>
 <script src="/Templates/shared/sidebar.js"></script>
 <script>
 (function() {
   const API_BASE = window.location.origin;
-  const QR_POLL_MS = 5000;
+  let qrPollMs = 5000;
+  let qrPollIntervalTimer = null;
+  let scansPollIntervalTimer = null;
 
   if (!localStorage.getItem('token')) {
     clearAuthAndRedirect();
   }
 
-  const qrImage        = document.getElementById('qr-code-image');
-  const qrExpiryText   = document.getElementById('qr-expiry-text');
-  const qrCountdown    = document.getElementById('qr-countdown');
-  const scansTbody     = document.getElementById('recent-scans-tbody');
-  const scanBadge      = document.getElementById('scan-count-badge');
-  const deptSelector   = document.getElementById('department-selector');
+  // Toast System
+  function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    const bgClass = type === 'error' ? 'bg-error text-white' : (type === 'warning' ? 'bg-warning text-white' : 'bg-[#0F172A] text-white');
+    const icon = type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'check_circle');
+    toast.className = `pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${bgClass} transition-all duration-300 transform translate-y-2 opacity-0 text-sm font-medium`;
+    toast.innerHTML = `<span class="material-symbols-outlined text-[18px]">${icon}</span><span>${message}</span>`;
+    container.appendChild(toast);
+    requestAnimationFrame(() => {
+      toast.classList.remove('translate-y-2', 'opacity-0');
+    });
+    setTimeout(() => {
+      toast.classList.add('translate-y-2', 'opacity-0');
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  }
+
+  // DOM Elements
+  const qrImage          = document.getElementById('qr-code-image');
+  const qrExpiryText     = document.getElementById('qr-expiry-text');
+  const qrCountdown      = document.getElementById('qr-countdown');
+  const scansTbody       = document.getElementById('recent-scans-tbody');
+  const scanBadge        = document.getElementById('scan-count-badge');
+  const intervalSlider   = document.getElementById('interval-slider');
+  const intervalDisplay  = document.getElementById('interval-display');
+  const toggleGeofence   = document.getElementById('toggle-geofence');
+  const toggleCrypto     = document.getElementById('toggle-crypto');
+  const btnAddKiosk      = document.getElementById('btn-add-kiosk');
+  const btnRegenKeys     = document.getElementById('btn-regenerate-keys');
+  const addKioskModal    = document.getElementById('add-kiosk-modal');
+  const addKioskForm     = document.getElementById('add-kiosk-form');
+  const closeKioskModal  = document.getElementById('close-kiosk-modal-btn');
+  const cancelKioskModal = document.getElementById('cancel-kiosk-modal-btn');
+  const kioskNameInput   = document.getElementById('kiosk-name-input');
+  const kioskLocInput    = document.getElementById('kiosk-location-input');
+  const kioskIpInput     = document.getElementById('kiosk-ip-input');
+  const kiosksContainer  = document.getElementById('kiosks-list-container');
+  const kioskCountBadge  = document.getElementById('kiosk-count-badge');
+  const btnNotifications = document.getElementById('btn-notifications');
+  const notifDropdown    = document.getElementById('notifications-dropdown');
+  const searchInput      = document.getElementById('kiosk-search-input');
 
   let currentExpiresAt = null;
   let countdownTimer   = null;
-  let qrPollInterval   = null;
-  let scanPollInterval = null;
-  let selectedDeptId   = null;
+  let rawScansData     = [];
 
-  // ── Department Selector ───────────────────────────────────
-  async function fetchDepartments() {
-    try {
-      const res = await fetch(`${API_BASE}/api/departments`, { headers: authHeaders() });
-      if (res.status === 401) { clearAuthAndRedirect(); return; }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const depts = await res.json();
+  // Default registered kiosks
+  let kiosks = JSON.parse(localStorage.getItem('sentinel_kiosks') || 'null') || [
+    { id: 1, name: 'Main Lobby Terminal #1', location: 'Ground Floor Lobby', ip: '192.168.1.10', status: 'Online' },
+    { id: 2, name: 'North Gate Kiosk #2', location: 'Building B - Gate 2', ip: '192.168.1.11', status: 'Online' }
+  ];
 
-      if (depts.length === 0) {
-        deptSelector.innerHTML = '<option value="" disabled selected>No departments found</option>';
-        return;
+  function renderKiosks() {
+    if (!kiosksContainer) return;
+    if (kioskCountBadge) kioskCountBadge.textContent = `${kiosks.length} Active`;
+    kiosksContainer.innerHTML = kiosks.map(k => `
+      <div class="flex items-center justify-between p-xs bg-surface-container-low rounded-lg border border-border">
+        <div class="flex items-center gap-xs">
+          <span class="w-2 h-2 rounded-full bg-success"></span>
+          <div>
+            <p class="text-xs font-semibold text-on-surface">${k.name}</p>
+            <p class="text-[11px] text-on-surface-variant">${k.location} • ${k.ip || 'DHCP'}</p>
+          </div>
+        </div>
+        <span class="text-[10px] bg-success/10 text-[#047857] px-1.5 py-0.5 rounded font-label-sm">${k.status}</span>
+      </div>
+    `).join('');
+    localStorage.setItem('sentinel_kiosks', JSON.stringify(kiosks));
+  }
+  renderKiosks();
+
+  // ── Slider Display & Interval Update ──────────────────────
+  if (intervalSlider && intervalDisplay) {
+    intervalDisplay.textContent = `${intervalSlider.value}s`;
+
+    intervalSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      intervalDisplay.textContent = `${val}s`;
+    });
+
+    intervalSlider.addEventListener('change', async (e) => {
+      const val = parseInt(e.target.value, 10);
+      qrPollMs = val * 1000;
+      
+      // Reset poll timer with new interval
+      if (qrPollIntervalTimer) clearInterval(qrPollIntervalTimer);
+      qrPollIntervalTimer = setInterval(fetchCurrentQR, qrPollMs);
+
+      try {
+        await fetch(`${API_BASE}/api/qr/settings`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ intervalSeconds: val })
+        });
+      } catch (err) {
+        console.error('[Settings] Error saving interval:', err);
       }
 
-      deptSelector.innerHTML = '<option value="" disabled selected>Select a department...</option>' +
-        depts.map(d => `<option value="${d._id}">${d.department_name}</option>`).join('');
-
-      // Auto-select first department
-      if (depts.length > 0) {
-        deptSelector.value = depts[0]._id;
-        selectedDeptId = depts[0]._id;
-        startPolling();
-      }
-    } catch (err) {
-      console.error('[Departments] Error:', err.message);
-      deptSelector.innerHTML = '<option value="" disabled selected>Error loading departments</option>';
-    }
+      showToast(`Regeneration interval set to ${val} seconds.`);
+    });
   }
 
-  deptSelector.addEventListener('change', (e) => {
-    selectedDeptId = e.target.value;
-    // Reset QR display
-    qrImage.src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=loading';
-    qrExpiryText.textContent = 'Loading QR code...';
-    qrCountdown.textContent = '';
-    startPolling();
-  });
+  // ── Toggles ───────────────────────────────────────────────
+  if (toggleGeofence) {
+    toggleGeofence.addEventListener('change', async () => {
+      const enabled = toggleGeofence.checked;
+      try {
+        await fetch(`${API_BASE}/api/qr/settings`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ geofenceEnabled: enabled })
+        });
+      } catch (err) {}
+      showToast(`Geolocation enforcement ${enabled ? 'enabled (50m radius)' : 'disabled'}.`);
+    });
+  }
 
-  function startPolling() {
-    // Clear old intervals
-    if (qrPollInterval) clearInterval(qrPollInterval);
-    if (scanPollInterval) clearInterval(scanPollInterval);
+  if (toggleCrypto) {
+    toggleCrypto.addEventListener('change', async () => {
+      const enabled = toggleCrypto.checked;
+      try {
+        await fetch(`${API_BASE}/api/qr/settings`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ cryptoSigningEnabled: enabled })
+        });
+      } catch (err) {}
+      showToast(`Cryptographic signing ${enabled ? 'enabled (HMAC-SHA256)' : 'disabled'}.`);
+    });
+  }
 
-    fetchCurrentQR();
-    fetchRecentScans();
-    qrPollInterval = setInterval(fetchCurrentQR, QR_POLL_MS);
-    scanPollInterval = setInterval(fetchRecentScans, QR_POLL_MS);
+  // ── Kiosk Action: Add New Kiosk Modal ─────────────────────
+  if (btnAddKiosk && addKioskModal) {
+    btnAddKiosk.addEventListener('click', () => {
+      addKioskModal.classList.remove('hidden');
+    });
+  }
+
+  function hideModal() {
+    if (addKioskModal) addKioskModal.classList.add('hidden');
+    if (addKioskForm) addKioskForm.reset();
+  }
+
+  if (closeKioskModal) closeKioskModal.addEventListener('click', hideModal);
+  if (cancelKioskModal) cancelKioskModal.addEventListener('click', hideModal);
+
+  if (addKioskForm) {
+    addKioskForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = kioskNameInput.value.trim();
+      const location = kioskLocInput.value.trim();
+      const ip = kioskIpInput.value.trim() || '192.168.1.' + Math.floor(Math.random() * 200 + 20);
+
+      if (!name || !location) return;
+
+      const newKiosk = {
+        id: Date.now(),
+        name,
+        location,
+        ip,
+        status: 'Online'
+      };
+
+      kiosks.push(newKiosk);
+      renderKiosks();
+      hideModal();
+      showToast(`New Kiosk "${name}" registered successfully!`);
+    });
+  }
+
+  // ── Kiosk Action: Regenerate Security Keys ────────────────
+  if (btnRegenKeys) {
+    btnRegenKeys.addEventListener('click', async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/qr/regenerate-keys`, {
+          method: 'POST',
+          headers: authHeaders()
+        });
+        if (res.status === 401) { clearAuthAndRedirect(); return; }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        const qrData = JSON.stringify({
+          id: data.qr_session_id,
+          code: data.code_value,
+          sig: data.signature,
+        });
+        qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+
+        currentExpiresAt = new Date(data.expires_at);
+        qrExpiryText.textContent = `Session: ${data.qr_session_id.slice(-8).toUpperCase()}`;
+        startCountdown();
+
+        showToast('All security keys regenerated successfully! QR session refreshed.');
+      } catch (err) {
+        console.error('[Regen Keys] Error:', err.message);
+        showToast('Failed to regenerate security keys.', 'error');
+      }
+    });
+  }
+
+  // ── Header Notifications Dropdown ─────────────────────────
+  if (btnNotifications && notifDropdown) {
+    btnNotifications.addEventListener('click', (e) => {
+      e.stopPropagation();
+      notifDropdown.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!notifDropdown.contains(e.target) && !btnNotifications.contains(e.target)) {
+        notifDropdown.classList.add('hidden');
+      }
+    });
+  }
+
+  // ── Table Search Filtering ────────────────────────────────
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      renderScansTable(rawScansData.filter(s => {
+        return (s.employee_name || '').toLowerCase().includes(q) ||
+               (s.status || '').toLowerCase().includes(q) ||
+               (s.check_in_time || '').toLowerCase().includes(q);
+      }));
+    });
   }
 
   // ── QR Polling ────────────────────────────────────────────
   async function fetchCurrentQR() {
-    if (!selectedDeptId) return;
     try {
-      const res = await fetch(`${API_BASE}/api/qr/current?department_id=${selectedDeptId}`, { headers: authHeaders() });
+      const res = await fetch(`${API_BASE}/api/qr/current`, { headers: authHeaders() });
       if (res.status === 401) { clearAuthAndRedirect(); return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -332,50 +586,81 @@
     }, 250);
   }
 
-  // ── Recent Scans Polling ──────────────────────────────────
+  // ── Recent Scans Polling & Render ─────────────────────────
+  function renderScansTable(scans) {
+    scanBadge.textContent = `${scans.length} scan${scans.length !== 1 ? 's' : ''}`;
+
+    if (scans.length === 0) {
+      scansTbody.innerHTML = '<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">No recent scans found</td></tr>';
+      return;
+    }
+
+    scansTbody.innerHTML = scans.map((s, i) => {
+      const isCheckout = !!s.check_out_time;
+      const type = isCheckout ? 'Check-out' : 'Check-in';
+      const time = new Date(isCheckout ? s.check_out_time : s.check_in_time);
+      const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const statusColors = {
+        'on-time': 'bg-success/10 text-[#047857]',
+        'late': 'bg-warning/10 text-[#B45309]',
+        'early-leave': 'bg-secondary/10 text-secondary',
+        'incomplete': 'bg-surface-variant text-on-surface-variant',
+      };
+      const sc = statusColors[s.status] || 'bg-surface-variant text-on-surface-variant';
+      const zebra = i % 2 === 1 ? 'bg-[#F8FAFC]' : '';
+      return `<tr class="${zebra} hover:bg-surface-variant transition-colors">
+        <td class="px-lg py-md text-on-surface font-medium">${s.employee_name}</td>
+        <td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">${type}</td>
+        <td class="px-lg py-md"><span class="inline-flex items-center gap-xs px-2 py-1 rounded-full font-label-md text-[12px] ${sc}"><span class="w-2 h-2 rounded-full" style="background:currentColor"></span>${s.status || 'n/a'}</span></td>
+        <td class="px-lg py-md text-on-surface-variant">${timeStr}</td>
+      </tr>`;
+    }).join('');
+  }
+
   async function fetchRecentScans() {
     try {
       const res = await fetch(`${API_BASE}/api/qr/recent-scans`, { headers: authHeaders() });
       if (res.status === 401) { clearAuthAndRedirect(); return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const scans = await res.json();
-
-      scanBadge.textContent = `${scans.length} scan${scans.length !== 1 ? 's' : ''}`;
-
-      if (scans.length === 0) {
-        scansTbody.innerHTML = '<tr><td colspan="5" class="px-lg py-md text-center text-on-surface-variant">No recent scans</td></tr>';
-        return;
+      rawScansData = await res.json();
+      const q = (searchInput?.value || '').toLowerCase().trim();
+      if (q) {
+        renderScansTable(rawScansData.filter(s => (s.employee_name || '').toLowerCase().includes(q)));
+      } else {
+        renderScansTable(rawScansData);
       }
-
-      scansTbody.innerHTML = scans.map((s, i) => {
-        const isCheckout = !!s.check_out_time;
-        const type = isCheckout ? 'Check-out' : 'Check-in';
-        const time = new Date(isCheckout ? s.check_out_time : s.check_in_time);
-        const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const statusColors = {
-          'on-time': 'bg-success/10 text-[#047857]',
-          'late': 'bg-warning/10 text-[#B45309]',
-          'early-leave': 'bg-secondary/10 text-secondary',
-          'incomplete': 'bg-surface-variant text-on-surface-variant',
-        };
-        const sc = statusColors[s.status] || 'bg-surface-variant text-on-surface-variant';
-        const zebra = i % 2 === 1 ? 'bg-[#F8FAFC]' : '';
-        return `<tr class="${zebra} hover:bg-surface-variant transition-colors">
-          <td class="px-lg py-md text-on-surface font-medium">${s.employee_name}</td>
-          <td class="px-lg py-md text-on-surface-variant font-body-sm">${s.department_name || 'N/A'}</td>
-          <td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">${type}</td>
-          <td class="px-lg py-md"><span class="inline-flex items-center gap-xs px-2 py-1 rounded-full font-label-md text-[12px] ${sc}"><span class="w-2 h-2 rounded-full" style="background:currentColor"></span>${s.status || 'n/a'}</span></td>
-          <td class="px-lg py-md text-on-surface-variant">${timeStr}</td>
-        </tr>`;
-      }).join('');
     } catch (err) {
       console.error('[Scans Poll] Error:', err.message);
     }
   }
 
+  // ── Fetch Server Settings ─────────────────────────────────
+  async function fetchSettings() {
+    try {
+      const res = await fetch(`${API_BASE}/api/qr/settings`, { headers: authHeaders() });
+      if (res.ok) {
+        const s = await res.json();
+        if (typeof s.intervalSeconds === 'number' && intervalSlider && intervalDisplay) {
+          intervalSlider.value = s.intervalSeconds;
+          intervalDisplay.textContent = `${s.intervalSeconds}s`;
+        }
+        if (typeof s.geofenceEnabled === 'boolean' && toggleGeofence) {
+          toggleGeofence.checked = s.geofenceEnabled;
+        }
+        if (typeof s.cryptoSigningEnabled === 'boolean' && toggleCrypto) {
+          toggleCrypto.checked = s.cryptoSigningEnabled;
+        }
+      }
+    } catch (err) {}
+  }
+
   // ── Boot ──────────────────────────────────────────────────
-  fetchDepartments();
+  fetchSettings();
+  fetchCurrentQR();
+  fetchRecentScans();
+  qrPollIntervalTimer = setInterval(fetchCurrentQR, qrPollMs);
+  scansPollIntervalTimer = setInterval(fetchRecentScans, qrPollMs);
 })();
 </script>
 
-</body></html>
+</body></html>
