@@ -100,6 +100,8 @@ async function checkin(req, res) {
 
     const ctx = {
       body: req.body,
+      headers: req.headers,
+      req,
       employee_id,
       todayStart,
       todayEnd,
@@ -138,7 +140,13 @@ async function checkin(req, res) {
     });
   } catch (err) {
     const status = err.status || 500;
-    return res.status(status).json({ error: err.message });
+    if (err.body) {
+      return res.status(status).json(err.body);
+    }
+    const responseBody = { error: err.message };
+    if (err.distance_m !== undefined) responseBody.distance_m = err.distance_m;
+    if (err.allowed_radius_m !== undefined) responseBody.allowed_radius_m = err.allowed_radius_m;
+    return res.status(status).json(responseBody);
   }
 }
 
@@ -161,6 +169,8 @@ async function checkout(req, res) {
 
     const ctx = {
       body: req.body,
+      headers: req.headers,
+      req,
       employee_id,
       todayStart,
       todayEnd,
@@ -198,7 +208,13 @@ async function checkout(req, res) {
     });
   } catch (err) {
     const status = err.status || 500;
-    return res.status(status).json({ error: err.message });
+    if (err.body) {
+      return res.status(status).json(err.body);
+    }
+    const responseBody = { error: err.message };
+    if (err.distance_m !== undefined) responseBody.distance_m = err.distance_m;
+    if (err.allowed_radius_m !== undefined) responseBody.allowed_radius_m = err.allowed_radius_m;
+    return res.status(status).json(responseBody);
   }
 }
 

@@ -18,6 +18,7 @@ const Attendance = require('../../shared/models/Attendance');
 const Employee = require('../../shared/models/Employee');
 const Department = require('../../shared/models/Department');
 const SecurityAlert = require('../../shared/models/SecurityAlert');
+const { getGeofenceMode, getMaxAccuracy } = require('../../shared/config/geofence');
 
 const QR_SIGNING_SECRET = process.env.QR_SIGNING_SECRET || 'default-dev-secret';
 
@@ -199,20 +200,48 @@ async function verifyCheckoutPreconditions(ctx) {
 }
 
 /**
- * Step 4: Verify geofence (non-blocking).
- * - Reads latitude/longitude from request body
- * - Computes distance from department's geofence center using Haversine formula
- * - If outside the geofence radius, logs a SecurityAlert but DOES NOT block attendance
- * - Attaches location data to ctx for the controller to store on the attendance record
- *
- * This step never throws — it always passes. Violations are logged as alerts.
+ * Step 4: Verify geofence.
+ * - Reads latitude/longitude, accuracy_m, is_mock_location from request body
+ * - Modes:
+ *   - 'off': skips geofence validation entirely
+ *   - 'log': logs SecurityAlert if outside radius, does NOT block
+ *   - 'enforce': blocks check-in/out if outside radius (403), accuracy poor (422),
+ *                or mock location (403); logs SecurityAlert for out-of-bounds attempts
  */
 async function verifyGeofence(ctx) {
-  const { latitude, longitude } = ctx.body;
+  const { latitude, longitude, accuracy_m, is_mock_location } = ctx.body;
 
   // Store location on context regardless (controller will save to attendance record)
   ctx.latitude = latitude || null;
   ctx.longitude = longitude || null;
+  ctx.accuracy_m = accuracy_m != null ? Number(accuracy_m) : null;
+  ctx.is_mock_location = is_mock_location != null ? Boolean(is_mock_location) : null;
+
+  const mode = getGeofenceMode(ctx);
+  const maxAccuracy = getMaxAccuracy(ctx);
+
+  if (mode === 'off') {
+    return;
+  }
+
+  if (mode === 'enforce') {
+    if (is_mock_location === true) {
+      const err = new Error('MOCK_LOCATION');
+      err.status = 403;
+      err.body = { error: 'MOCK_LOCATION' };
+      throw err;
+    }
+
+    if (accuracy_m !== undefined && accuracy_m !== null) {
+      const parsedAccuracy = Number(accuracy_m);
+      if (parsedAccuracy > maxAccuracy) {
+        const err = new Error('ACCURACY_TOO_LOW');
+        err.status = 422;
+        err.body = { error: 'ACCURACY_TOO_LOW' };
+        throw err;
+      }
+    }
+  }
 
   // If no location sent by client, skip geofence check
   if (latitude == null || longitude == null) {
@@ -237,9 +266,9 @@ async function verifyGeofence(ctx) {
   const radius = dept.geofence_radius_m || 200;
 
   if (distance > radius) {
-    // Outside geofence — log alert but DON'T block
+    const roundedDistance = Math.round(distance);
     console.warn(
-      `[Geofence] Employee ${ctx.employee_id} is ${Math.round(distance)}m from ` +
+      `[Geofence] Employee ${ctx.employee_id} is ${roundedDistance}m from ` +
       `${dept.department_name} center (limit: ${radius}m)`
     );
 
@@ -248,17 +277,32 @@ async function verifyGeofence(ctx) {
         employee_id: ctx.employee_id,
         alert_type: 'geofence_violation',
         severity: 'high',
-        message: `Employee scanned QR ${Math.round(distance)}m outside the ${dept.department_name} geofence (limit: ${radius}m).`,
+        message: `Employee scanned QR ${roundedDistance}m outside the ${dept.department_name} geofence (limit: ${radius}m).`,
         metadata: {
           latitude,
           longitude,
           department_id: empDeptId,
-          distance_m: Math.round(distance),
+          distance_m: roundedDistance,
           qr_session_id: ctx.qrSession?._id,
+          accuracy_m: accuracy_m != null ? Number(accuracy_m) : null,
+          is_mock_location: is_mock_location != null ? Boolean(is_mock_location) : null,
         },
       });
     } catch (alertErr) {
       console.error('[Geofence] Failed to log geofence alert:', alertErr.message);
+    }
+
+    if (mode === 'enforce') {
+      const err = new Error('OUTSIDE_GEOFENCE');
+      err.status = 403;
+      err.distance_m = roundedDistance;
+      err.allowed_radius_m = radius;
+      err.body = {
+        error: 'OUTSIDE_GEOFENCE',
+        distance_m: roundedDistance,
+        allowed_radius_m: radius,
+      };
+      throw err;
     }
   }
 }

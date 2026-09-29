@@ -4,14 +4,17 @@
  */
 const http = require('http');
 const { authenticator } = require('otplib');
+const { spawn } = require('child_process');
+const path = require('path');
 
 let passed = 0, failed = 0, skipped = 0;
+let spawnedServer = null;
 
-function req(method, path, body, token) {
+function req(method, path, body, token, customHeaders = {}) {
   return new Promise((resolve, reject) => {
     const opts = {
       hostname: 'localhost', port: 3000, path, method,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json', ...customHeaders }
     };
     if (token) opts.headers['Authorization'] = `Bearer ${token}`;
     const r = http.request(opts, res => {
@@ -28,6 +31,34 @@ function req(method, path, body, token) {
   });
 }
 
+async function ensureServerRunning() {
+  try {
+    const h = await req('GET', '/api/health');
+    if (h.s === 200) return;
+  } catch (e) {
+    // Server not running yet
+  }
+
+  console.log('[Test Suite] Launching Sentinel server for E2E tests...');
+  spawnedServer = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
+    stdio: 'ignore',
+    env: { ...process.env, PORT: '3000' }
+  });
+
+  const start = Date.now();
+  while (Date.now() - start < 15000) {
+    await new Promise(r => setTimeout(r, 400));
+    try {
+      const h = await req('GET', '/api/health');
+      if (h.s === 200) {
+        console.log('[Test Suite] Sentinel server is healthy and ready.\n');
+        return;
+      }
+    } catch (e) {}
+  }
+  throw new Error('Sentinel server failed to start within 15 seconds.');
+}
+
 function log(ok, label, detail) {
   if (ok === true) { passed++; console.log(`  ✅ ${label}${detail ? ' — ' + detail : ''}`); }
   else if (ok === false) { failed++; console.log(`  ❌ ${label}${detail ? ' — ' + detail : ''}`); }
@@ -35,6 +66,8 @@ function log(ok, label, detail) {
 }
 
 async function run() {
+  await ensureServerRunning();
+
   console.log('\n╔══════════════════════════════════════════════════════╗');
   console.log('║   Sentinel EAMS — Full Integration Verification     ║');
   console.log('╚══════════════════════════════════════════════════════╝\n');
@@ -268,6 +301,155 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  console.log('\n─── Module 2c: Geofence Toggle & Accuracy Verification ───');
+
+  // Verify dashboard summary exposes read-only geofence_mode
+  const summaryMode = summary.b && summary.b.data && summary.b.data.geofence_mode;
+  log(summaryMode === 'log', 'Dashboard summary exposes geofence_mode: log', `mode=${summaryMode}`);
+
+  // Create dedicated employees for geofence mode testing
+  const geoEmail = `geo.tester.${Date.now()}@sentinel.com`;
+  const geoEmpRes = await req('POST', '/api/employees', {
+    name: 'Geofence Enforce Tester',
+    email: geoEmail,
+    department_id: testDeptId,
+    designation: 'Field QA',
+    phone: '+1-555-4321',
+    join_date: '2026-02-15'
+  }, adminToken);
+  const geoLogin = await req('POST', '/api/auth/login', { email: geoEmail, password: 'Welcome@123' });
+  const geoToken = geoLogin.b.token;
+  const geoEmpId = geoEmpRes.b && (geoEmpRes.b._id || geoEmpRes.b.id);
+
+  const getFreshQr = async () => req('GET', `/api/qr/current?department_id=${testDeptId}`, null, adminToken);
+
+  if (geoToken) {
+    // 1. Enforce mode with a bad accuracy_m returns 422
+    const qr1 = await getFreshQr();
+    const badAccRes = await req('POST', '/api/attendance/checkin', {
+      qr_session_id: qr1.b.qr_session_id,
+      code_value: qr1.b.code_value,
+      signature: qr1.b.signature,
+      latitude: 10.0159,
+      longitude: 76.3419,
+      accuracy_m: 85, // greater than default max 50m
+    }, geoToken, { 'x-geofence-mode': 'enforce' });
+    log(badAccRes.s === 422, 'Enforce mode with a bad accuracy_m returns 422', `status=${badAccRes.s}`);
+
+    // 2. Enforce mode with is_mock_location: true returns 403 MOCK_LOCATION
+    const qr2 = await getFreshQr();
+    const mockRes = await req('POST', '/api/attendance/checkin', {
+      qr_session_id: qr2.b.qr_session_id,
+      code_value: qr2.b.code_value,
+      signature: qr2.b.signature,
+      latitude: 10.0159,
+      longitude: 76.3419,
+      accuracy_m: 10,
+      is_mock_location: true,
+    }, geoToken, { 'x-geofence-mode': 'enforce' });
+    log(mockRes.s === 403 && mockRes.b.error === 'MOCK_LOCATION', 'Enforce mode with is_mock_location: true returns 403 MOCK_LOCATION', `status=${mockRes.s}, error=${mockRes.b.error}`);
+
+    // 3. Enforce mode: outside-radius check-in returns 403 OUTSIDE_GEOFENCE, no Attendance record is written, SecurityAlert is still created
+    const qr3 = await getFreshQr();
+    const outsideEnforce = await req('POST', '/api/attendance/checkin', {
+      qr_session_id: qr3.b.qr_session_id,
+      code_value: qr3.b.code_value,
+      signature: qr3.b.signature,
+      latitude: 10.0500, // ~3792m away from center (10.0159, 76.3419), well outside 200m limit
+      longitude: 76.3419,
+      accuracy_m: 15,
+      is_mock_location: false,
+    }, geoToken, { 'x-geofence-mode': 'enforce' });
+
+    const isEnforceBlocked = outsideEnforce.s === 403 &&
+      outsideEnforce.b.error === 'OUTSIDE_GEOFENCE' &&
+      typeof outsideEnforce.b.distance_m === 'number' &&
+      outsideEnforce.b.allowed_radius_m === 200;
+
+    const attList = await req('GET', `/api/attendance?employee_id=${geoEmpId}`, null, adminToken);
+    const noAttWritten = attList.s === 200 && Array.isArray(attList.b) && attList.b.length === 0;
+
+    const alertsEnforce = await req('GET', '/api/security/alerts', null, adminToken);
+    const hasEnforceAlert = Array.isArray(alertsEnforce.b) && alertsEnforce.b.some(a =>
+      (a.employee_email === geoEmail || a.employee_name === 'Geofence Enforce Tester') &&
+      a.alert_type === 'geofence_violation'
+    );
+
+    log(isEnforceBlocked && noAttWritten && hasEnforceAlert, 'Enforce mode: outside-radius returns 403 OUTSIDE_GEOFENCE, no Attendance written, SecurityAlert created',
+      `status=${outsideEnforce.s}, dist=${outsideEnforce.b.distance_m}m, noAtt=${noAttWritten}, alertCreated=${hasEnforceAlert}`);
+
+    // 4. Log mode: outside-radius check-in succeeds, SecurityAlert created with the correct distance_m
+    const qr4 = await getFreshQr();
+    const outsideLog = await req('POST', '/api/attendance/checkin', {
+      qr_session_id: qr4.b.qr_session_id,
+      code_value: qr4.b.code_value,
+      signature: qr4.b.signature,
+      latitude: 10.0500, // outside radius
+      longitude: 76.3419,
+      accuracy_m: 22,
+      is_mock_location: false,
+    }, geoToken, { 'x-geofence-mode': 'log' });
+
+    const logSucceeded = (outsideLog.s === 201 || outsideLog.s === 200);
+    const alertsLog = await req('GET', '/api/security/alerts', null, adminToken);
+    const logAlert = Array.isArray(alertsLog.b) && alertsLog.b.find(a =>
+      (a.employee_email === geoEmail || a.employee_name === 'Geofence Enforce Tester') &&
+      a.alert_type === 'geofence_violation' &&
+      a.metadata && a.metadata.accuracy_m === 22
+    );
+
+    const hasCorrectDist = !!logAlert && typeof logAlert.metadata.distance_m === 'number' && logAlert.metadata.distance_m > 3000;
+    log(logSucceeded && hasCorrectDist, 'Log mode: outside-radius check-in succeeds, SecurityAlert created with correct distance_m',
+      `status=${outsideLog.s}, dist=${logAlert ? logAlert.metadata.distance_m : 'none'}m`);
+
+    // 5. Off mode: outside-radius check-in succeeds, no SecurityAlert created
+    const offEmail = `off.tester.${Date.now()}@sentinel.com`;
+    const offEmpRes = await req('POST', '/api/employees', {
+      name: 'Geofence Off Tester',
+      email: offEmail,
+      department_id: testDeptId,
+      designation: 'Off QA',
+      phone: '+1-555-1111',
+      join_date: '2026-02-15'
+    }, adminToken);
+    const offLogin = await req('POST', '/api/auth/login', { email: offEmail, password: 'Welcome@123' });
+    const offToken = offLogin.b.token;
+    const offEmpId = offEmpRes.b && (offEmpRes.b._id || offEmpRes.b.id);
+
+    const qr5 = await getFreshQr();
+    const offCheckin = await req('POST', '/api/attendance/checkin', {
+      qr_session_id: qr5.b.qr_session_id,
+      code_value: qr5.b.code_value,
+      signature: qr5.b.signature,
+      latitude: 10.0500,
+      longitude: 76.3419,
+      accuracy_m: 99,
+      is_mock_location: true,
+    }, offToken, { 'x-geofence-mode': 'off' });
+
+    const offSucceeded = (offCheckin.s === 201 || offCheckin.s === 200);
+    const alertsOff = await req('GET', '/api/security/alerts', null, adminToken);
+    const hasOffAlert = Array.isArray(alertsOff.b) && alertsOff.b.some(a =>
+      (a.employee_email === offEmail || a.employee_name === 'Geofence Off Tester') &&
+      a.alert_type === 'geofence_violation'
+    );
+    log(offSucceeded && !hasOffAlert, 'Off mode: outside-radius check-in succeeds, no SecurityAlert created',
+      `status=${offCheckin.s}, alertCreated=${hasOffAlert}`);
+
+    // 6. A geofence_violation alert shows up in the reports endpoint output
+    const orgReportAfter = await req('GET', '/api/reports/organisation', null, adminToken);
+    const inReportData = orgReportAfter.b && Array.isArray(orgReportAfter.b.data) &&
+      orgReportAfter.b.data.some(r => r.type === 'geofence_violation' || r.status === 'geofence-violation');
+    const inReportSummary = orgReportAfter.b && orgReportAfter.b.summary &&
+      typeof orgReportAfter.b.summary.total_geofence_violations === 'number' &&
+      orgReportAfter.b.summary.total_geofence_violations > 0;
+    log(inReportData && inReportSummary, 'A geofence_violation alert shows up in the reports endpoint output',
+      `inData=${inReportData}, totalViolations=${orgReportAfter.b.summary?.total_geofence_violations}`);
+  } else {
+    log(false, 'Geofence toggle tests', 'missing geoToken or QR session');
+  }
+
+  // ═══════════════════════════════════════════
   console.log('\n─── Edge Cases ───');
 
   const notFound = await req('GET', '/api/nonexistent');
@@ -283,7 +465,15 @@ async function run() {
   console.log(`║  Total:  ${total} tests                                 ║`);
   console.log(`╚══════════════════════════════════════════════════════╝\n`);
 
+  if (spawnedServer) {
+    spawnedServer.kill();
+  }
+
   if (failed > 0) process.exit(1);
 }
 
-run().catch(err => { console.error('Test crashed:', err); process.exit(1); });
+run().catch(err => {
+  if (spawnedServer) spawnedServer.kill();
+  console.error('Test crashed:', err);
+  process.exit(1);
+});

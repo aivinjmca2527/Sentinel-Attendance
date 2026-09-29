@@ -19,6 +19,8 @@ const securityAlertSchema = new mongoose.Schema({
     department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', default: null },
     distance_m: { type: Number, default: null },
     qr_session_id: { type: mongoose.Schema.Types.ObjectId, ref: 'QRSession', default: null },
+    accuracy_m: { type: Number, default: null },
+    is_mock_location: { type: Boolean, default: null },
   },
   status: {
     type: String,

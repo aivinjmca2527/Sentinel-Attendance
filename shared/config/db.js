@@ -30,13 +30,29 @@ async function connectDB() {
 }
 
 async function seedIfEmpty() {
+  // Ensure existing departments have geofence coordinates configured
+  await Department.updateMany(
+    { $or: [{ geofence_lat: null }, { geofence_lat: { $exists: false } }] },
+    { $set: { geofence_lat: 10.0159, geofence_lng: 76.3419, geofence_radius_m: 200 } }
+  );
+
   const count = await Department.countDocuments();
   if (count > 0) return;
 
   console.log('[DB] Seeding initial data for Mongoose...');
 
-  const hr = await Department.create({ department_name: 'Human Resources' });
-  const eng = await Department.create({ department_name: 'Engineering' });
+  const hr = await Department.create({
+    department_name: 'Human Resources',
+    geofence_lat: 10.0159,
+    geofence_lng: 76.3419,
+    geofence_radius_m: 200
+  });
+  const eng = await Department.create({
+    department_name: 'Engineering',
+    geofence_lat: 10.0159,
+    geofence_lng: 76.3419,
+    geofence_radius_m: 200
+  });
 
   const adminPass = bcrypt.hashSync('Admin@123', 10);
   const employeePass = bcrypt.hashSync('Mary@123', 10);

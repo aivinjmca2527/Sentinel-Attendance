@@ -3,6 +3,7 @@ const Employee = require('../../shared/models/Employee');
 const Department = require('../../shared/models/Department');
 const LeaveRequest = require('../../shared/models/LeaveRequest');
 const User = require('../../shared/models/User');
+const SecurityAlert = require('../../shared/models/SecurityAlert');
 
 /**
  * COORDINATION NOTE (Aivin):
@@ -101,6 +102,21 @@ exports.getOrganisationReport = async (req, res) => {
       .sort({ start_date: -1 })
       .lean();
 
+    // Fetch geofence violation alerts in range
+    const geofenceAlerts = await SecurityAlert.find({
+      alert_type: 'geofence_violation',
+      created_at: { $gte: start, $lte: end }
+    })
+      .populate({
+        path: 'employee_id',
+        populate: [
+          { path: 'user_id', select: 'name email role' },
+          { path: 'department_id', select: 'department_name' }
+        ]
+      })
+      .sort({ created_at: -1 })
+      .lean();
+
     // Transform attendance records into structured report rows
     let totalPresent = 0;
     let totalLate = 0;
@@ -191,6 +207,31 @@ exports.getOrganisationReport = async (req, res) => {
       });
     });
 
+    // Add geofence violation alert entries
+    geofenceAlerts.forEach(alert => {
+      const emp = alert.employee_id || {};
+      const user = emp.user_id || {};
+      const dept = emp.department_id || {};
+
+      const alertDate = alert.created_at ? new Date(alert.created_at).toISOString().split('T')[0] : 'N/A';
+      const alertTime = alert.created_at ? new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : 'N/A';
+
+      reportRows.push({
+        type: 'geofence_violation',
+        date: alertDate,
+        employee_name: user.name || 'Unknown',
+        email: user.email || 'N/A',
+        department: dept.department_name || 'N/A',
+        designation: emp.designation || 'N/A',
+        status: 'geofence-violation',
+        check_in_time: alertTime,
+        check_out_time: 'N/A',
+        working_hours: '0.00',
+        leave_type: 'N/A',
+        reason_or_notes: alert.message || 'Geofence Violation'
+      });
+    });
+
     const avgWorkingHours = countedWorkingHours > 0 ? Number((totalWorkingHours / countedWorkingHours).toFixed(2)) : 0;
 
     // CSV format requested
@@ -243,7 +284,8 @@ exports.getOrganisationReport = async (req, res) => {
       meta: {
         range: { start: startIso, end: endIso },
         total_employees: employees.length,
-        total_records: reportRows.length
+        total_records: reportRows.length,
+        total_geofence_violations: geofenceAlerts.length
       },
       summary: {
         total_present: totalPresent,
@@ -251,8 +293,10 @@ exports.getOrganisationReport = async (req, res) => {
         total_early_leave: totalEarlyLeave,
         total_incomplete: totalIncomplete,
         total_on_leave: leaves.length,
-        avg_working_hours: avgWorkingHours
+        avg_working_hours: avgWorkingHours,
+        total_geofence_violations: geofenceAlerts.length
       },
+      geofence_violations: geofenceAlerts,
       data: reportRows
     });
   } catch (error) {
