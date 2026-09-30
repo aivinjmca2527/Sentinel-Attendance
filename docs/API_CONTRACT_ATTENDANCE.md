@@ -1,7 +1,7 @@
 # API Contract & Geofencing Specification: Attendance Module
 
-**Document Version:** 1.1.0  
-**Status:** Implemented (Geofence Toggle & Accuracy Validation Active)  
+**Document Version:** 1.2.0-draft  
+**Status:** Geofencing & kiosk: Implemented. **Face Authentication (Section 5): DESIGNED, NOT YET IMPLEMENTED** (contract locked ahead of the build; marked *(planned)* wherever it appears).  
 **Target File / Module:** `modules/attendance/`, `modules/dashboard/`, `modules/reports/`, & `shared/`  
 
 ---
@@ -27,6 +27,7 @@ Performs verification and records the start of an employee's workday.
 | `longitude` | `number` | Optional* | Current device longitude (e.g. `77.5946`). *Required in `enforce` mode. |
 | `accuracy_m` | `number` | Optional | Horizontal GPS accuracy in meters (e.g. `15.5`). |
 | `is_mock_location` | `boolean` | Optional* | Mock/spoofed location indicator from client device. *Required boolean (`true`/`false`) in `enforce` mode. |
+| `face_proof` | `string` | Optional* | *(planned)* Signed, single-use token from `POST /api/face/verify`. *Required in `enforce` when `FACE_MODE=enforce`. See Section 5. |
 
 #### Response: Success (`201 Created`)
 ```json
@@ -48,6 +49,7 @@ Performs verification and records the start of an employee's workday.
   - Department mismatch (`"Department mismatch: you cannot check in with another department's QR code."`).
   - Mock location detected in enforce mode (`{ "error": "MOCK_LOCATION" }`).
   - Outside department geofence in enforce mode (`{ "error": "OUTSIDE_GEOFENCE", "distance_m": 350, "allowed_radius_m": 200 }`).
+  - *(planned)* Face proof problems in `FACE_MODE=enforce`: `FACE_PROOF_REQUIRED`, `FACE_PROOF_INVALID`, `FACE_PROOF_EXPIRED`, `FACE_PROOF_REUSED`, `FACE_PROOF_ACTION_MISMATCH`, `FACE_NOT_ENROLLED` (see Section 5.6).
 - `404 Not Found`: Employee record not found.
 - `409 Conflict`: Duplicate check-in (`"Employee has already checked in today."`).
 - `410 Gone`: QR code has expired.
@@ -75,6 +77,7 @@ Performs verification, updates today's attendance record with check-out timestam
 | `longitude` | `number` | Optional* | Current device longitude. *Required in `enforce` mode. |
 | `accuracy_m` | `number` | Optional | Horizontal GPS accuracy in meters. |
 | `is_mock_location` | `boolean` | Optional* | Mock/spoofed location indicator. *Required boolean (`true`/`false`) in `enforce` mode. |
+| `face_proof` | `string` | Optional* | *(planned)* Signed, single-use token from `POST /api/face/verify`. *Required in `enforce` when `FACE_MODE=enforce`. See Section 5. |
 
 #### Response: Success (`200 OK`)
 ```json
@@ -92,7 +95,7 @@ Performs verification, updates today's attendance record with check-out timestam
 #### Response: Error Status Codes
 - `400 Bad Request`: Missing required fields, missing coordinates in enforce mode (`{ "error": "LOCATION_REQUIRED" }`), missing boolean mock flag in enforce mode (`{ "error": "MOCK_LOCATION_FLAG_REQUIRED" }`), or no check-in record found for today.
 - `401 Unauthorized`: Invalid QR session or signature.
-- `403 Forbidden`: Department mismatch, mock location in enforce mode, or outside geofence boundary in enforce mode.
+- `403 Forbidden`: Department mismatch, mock location in enforce mode, outside geofence boundary in enforce mode, or *(planned)* a face-proof error in `FACE_MODE=enforce` (same codes as check-in, Section 5.6).
 - `404 Not Found`: Employee not found.
 - `409 Conflict`: Employee has already checked out today.
 - `410 Gone`: Expired QR code.
@@ -225,7 +228,7 @@ The complete schema for security alerts:
 | Field | Type | Attributes / Constraints |
 | :--- | :--- | :--- |
 | `employee_id` | `ObjectId` | ref: `'Employee'`, `required: true` |
-| `alert_type` | `String` | `required: true`, enum: `['geofence_violation', 'department_mismatch', 'expired_qr', 'duplicate_scan']` |
+| `alert_type` | `String` | `required: true`, enum: `['geofence_violation', 'department_mismatch', 'expired_qr', 'duplicate_scan']` *(planned additions: `'face_mismatch'`, `'liveness_failed'`, `'face_proof_invalid'`, `'face_reenrolled'`, `'face_revoked'`, `'face_locked'`)* |
 | `severity` | `String` | enum: `['low', 'medium', 'high', 'critical']`, `default: 'medium'` |
 | `message` | `String` | `required: true` |
 | `metadata` | `Object` | Embedded object: |
@@ -270,7 +273,7 @@ The `verification_method` schema definition:
 **Actual Values in Active Use:**
 - `'qr_only'`: Used when check-in occurs without device coordinates (`latitude` or `longitude` missing/null).
 - `'qr_geo'`: Used when device coordinates (`latitude` and `longitude`) are supplied during check-in, or upgraded during check-out.
-- `'qr_geo_face'`: **Unused / Reserved**. Not emitted by any pipeline step or controller.
+- `'qr_geo_face'`: **Reserved today; will be emitted once Face Authentication is implemented** - when a valid `face_proof` is accepted together with device coordinates. *(Open design point for the build: a check-in with a valid face proof but no coordinates has no matching enum value; decide whether to require coordinates whenever a proof is used, or add a value. Do not silently reuse `qr_only`.)*
 
 ---
 
@@ -278,5 +281,110 @@ The `verification_method` schema definition:
 
 1. **Admin Dashboard Summary (`GET /api/dashboard/summary`):**
    - Exposes read-only `geofence_mode` property reflecting current server configuration (`"off"`, `"log"`, or `"enforce"`).
+   - *(planned)* Also exposes read-only `face_mode` with the same three values.
 2. **Organisation Report (`GET /api/reports/organisation`):**
    - Wires `SecurityAlert` records of type `geofence_violation` directly into output rows (`status: 'geofence-violation'`), metadata totals (`meta.total_geofence_violations`), summary aggregates (`summary.total_geofence_violations`), and CSV export streams.
+
+---
+
+## 5. Face Authentication *(planned - contract locked, not implemented)*
+
+**Design rules (do not change without updating this document):**
+- The SERVER decides pass/fail. The client never sends `face_verified`; it uploads images and forwards the server-issued proof.
+- Face is verified **before** the QR scan (the QR expires in ~10 s). The resulting `face_proof` is then sent with `checkin`/`checkout`.
+- Reference faces are enrolled by an **admin only**. Employees cannot enrol or replace their own face.
+- Liveness = a random head-turn challenge, checked on-device (UX only) and best-effort on the server. It is a heuristic, not a guarantee.
+- Rollout via `FACE_MODE` (`off` default, then `log`, then `enforce`), mirroring `GEOFENCE_MODE`.
+
+All endpoints require `Authorization: Bearer <JWT>`. Uploads are `multipart/form-data`, JPEG or PNG, max `FACE_MAX_IMAGE_BYTES` (default 1.5 MB) per image. Error bodies use the same shape as the rest of this document: `{ "error": "CODE", ...extra }`.
+
+### 5.1 GET `/api/face/me`
+Any authenticated user with an `employee_id`.
+
+`200 OK`
+```json
+{ "face_mode": "log", "enrolled": true, "enrolled_at": "2026-10-01T09:00:00.000Z", "locked_until": null }
+```
+The mobile app uses this to decide whether to show the face step. A `404` from an older server means "face not supported" and is treated as `face_mode: "off"`.
+
+### 5.2 POST `/api/face/enroll` (admin only)
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `employee_id` | text | **Yes** | Employee to enrol. |
+| `image` | file | **Yes** | Clear frontal face photo. |
+| `consent_confirmed` | text | **Yes** | Must be `"true"`. |
+| `replace` | text | Optional | `"true"` to replace an existing template (logs `face_reenrolled`). |
+
+- `201 Created`: `{ "employee_id", "enrolled": true, "model_version", "enrolled_at" }`
+- `400`: `NO_FACE`, `MULTIPLE_FACES`, `LOW_QUALITY`, `CONSENT_REQUIRED`
+- `403` non-admin; `404 EMPLOYEE_NOT_FOUND`; `409 FACE_ALREADY_ENROLLED`; `413`; `415`
+
+### 5.3 DELETE `/api/face/:employee_id` (admin only)
+`200 OK`: `{ "revoked": true }`. Deletes the stored template and logs `face_revoked`.
+
+### 5.4 POST `/api/face/challenge`
+Employee/manager with an `employee_id`.
+
+`200 OK`
+```json
+{ "challenge_id": "...", "challenge": "turn_left", "expires_at": "2026-10-01T09:00:30.000Z", "ttl_seconds": 30 }
+```
+- `403 FACE_NOT_ENROLLED`; `429 FACE_LOCKED` with `{ "retry_after_seconds": 840 }`.
+- A new challenge invalidates any earlier active one for the same employee.
+
+### 5.5 POST `/api/face/verify`
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `challenge_id` | text | **Yes** | From 5.4. Single-use, 30 s TTL. |
+| `intended_action` | text | Optional | `checkin` or `checkout`; embedded in the proof. Omitted = `any`. |
+| `neutral_frame` | file | **Yes** | Facing the camera. |
+| `action_frame` | file | **Yes** | After performing the head turn. |
+
+- `200 OK`: `{ "face_proof": "<signed token>", "expires_at": "<ISO>", "intended_action": "checkin|checkout|any" }`
+- `400`: `NO_FACE`, `MULTIPLE_FACES`, `CHALLENGE_INVALID`, `CHALLENGE_EXPIRED`
+- `403 FACE_MISMATCH` and `403 LIVENESS_FAILED`: both include `{ "attempts_remaining": n }`
+- `403 FACE_NOT_ENROLLED`; `429 FACE_LOCKED` (`retry_after_seconds`); `413`; `415`
+- **The response never includes a similarity score, distance, or embedding.**
+
+### 5.6 Changes to check-in / check-out
+New optional body field `face_proof` (string). Behaviour by `FACE_MODE`:
+
+| Mode | Missing / invalid proof | `SecurityAlert` | Blocked? |
+| :--- | :--- | :--- | :--- |
+| **`off`** *(default)* | Field ignored | No | **No** |
+| **`log`** | Recorded | **Yes** | **No** (proceeds normally) |
+| **`enforce`** | `403` with one of the codes below | **Yes** | **Yes** (no Attendance record saved) |
+
+Enforce-mode codes: `FACE_PROOF_REQUIRED`, `FACE_PROOF_INVALID`, `FACE_PROOF_EXPIRED`, `FACE_PROOF_REUSED`, `FACE_PROOF_ACTION_MISMATCH`, `FACE_NOT_ENROLLED`.
+
+Pipeline: new step `verifyFaceProof` runs after `verifyGeofence` and before the duplicate-scan check. The proof's `jti` is consumed atomically as late as possible (right before the Attendance write), so an earlier failing step (e.g. outside geofence) does not burn the proof.
+
+### 5.7 Face proof token
+JWT signed with a dedicated `FACE_PROOF_SECRET` (never `JWT_SECRET`). Claims: `sub`, `employee_id`, `purpose: "face_proof"`, `jti`, `intended_action`, `iat`, `exp` (default 120 s). Single-use, enforced via a unique index on `jti`.
+
+### 5.8 Data models *(planned)*
+- `FaceTemplate`: `employee_id` (unique), `embedding` (`select: false`), `model_version`, `enrolled_by`, `enrolled_at`, `failed_attempts`, `locked_until`.
+- `FaceChallenge`: `challenge_id`, `employee_id`, `challenge`, `expires_at` (TTL), `used`.
+- `FaceProofUse`: `jti` (unique), `employee_id`, `consumed_at`, `expires_at` (TTL).
+- Raw photos are not stored unless `FACE_STORE_PHOTO=true`. `Employee.reference_face_photo_url` stays null otherwise.
+- `GET /api/employees` items gain a boolean `face_enrolled`. No endpoint ever returns an embedding.
+
+### 5.9 Configuration
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `FACE_MODE` | `off` | `off` / `log` / `enforce` |
+| `FACE_PROVIDER` | `local` | `local` or `mock` (mock refuses to load in production) |
+| `FACE_MATCH_THRESHOLD` | `0.5` | Max embedding distance for a match |
+| `FACE_PROOF_SECRET` | none | **Required** when mode is `log` or `enforce` |
+| `FACE_PROOF_TTL_SECONDS` | `120` | Proof lifetime |
+| `FACE_CHALLENGE_TTL_SECONDS` | `30` | Challenge lifetime |
+| `FACE_MIN_YAW_DELTA` | `15` | Minimum head-turn angle (degrees) checked on the server |
+| `FACE_MAX_FAILED_ATTEMPTS` | `5` | Failures before lockout |
+| `FACE_LOCKOUT_MINUTES` | `15` | Lockout duration |
+| `FACE_STORE_PHOTO` | `false` | Keep raw reference photo |
+| `FACE_MAX_IMAGE_BYTES` | `1500000` | Per-image upload limit |
+
+Test-only: `X-Face-Mode` header is honoured only when `NODE_ENV === 'test'` AND `X-Test-Secret === TEST_OVERRIDE_SECRET` (same mechanism as the geofence override).
+
+### 5.10 Known limitations
+Head-turn liveness can be defeated by pre-recorded video or a 3D mask; a rooted device can feed synthetic camera frames; on-device ML Kit results are not trusted for security. Stronger options: a managed liveness service or device attestation (Play Integrity / DeviceCheck).
