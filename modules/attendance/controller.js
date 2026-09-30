@@ -13,6 +13,7 @@ const {
   verifyNoDuplicateCheckin,
   verifyCheckoutPreconditions,
   verifyGeofence,
+  verifyFaceProof,
 } = require('./verificationSteps');
 
 // ─── Configuration ──────────────────────────────────────────────────────────
@@ -69,15 +70,17 @@ function getCheckoutStatus(workingHours, checkinStatus) {
 const checkinSteps = [
   verifyQrSignatureAndExpiry,   // checks code_value / signature / expires_at
   verifyDepartmentMatch,        // checks employee dept matches QR dept (blocks 403)
-  verifyNoDuplicateCheckin,     // checks employee doesn't already have today's record
   verifyGeofence,               // checks location, logs alert if outside (non-blocking)
+  verifyFaceProof,              // validates face proof token (off/log/enforce)
+  verifyNoDuplicateCheckin,     // checks employee doesn't already have today's record
 ];
 
 const checkoutSteps = [
   verifyQrSignatureAndExpiry,   // same QR integrity check
   verifyDepartmentMatch,        // same department check
-  verifyCheckoutPreconditions,  // must have check-in, must not already have check-out
   verifyGeofence,               // same geofence check (non-blocking)
+  verifyFaceProof,              // validates face proof token (off/log/enforce)
+  verifyCheckoutPreconditions,  // must have check-in, must not already have check-out
 ];
 
 // ─── Route handlers ─────────────────────────────────────────────────────────
@@ -105,6 +108,7 @@ async function checkin(req, res) {
       employee_id,
       todayStart,
       todayEnd,
+      routeAction: 'checkin',
     };
 
     // Run the verification pipeline
@@ -113,9 +117,17 @@ async function checkin(req, res) {
     const now = new Date();
     const status = getCheckinStatus(now);
 
-    // Determine verification method based on whether location was provided
+    // Determine verification method based on what was provided
     const hasLocation = ctx.latitude != null && ctx.longitude != null;
-    const verification_method = hasLocation ? 'qr_geo' : 'qr_only';
+    let verification_method = hasLocation ? 'qr_geo' : 'qr_only';
+    if (ctx.face_verified && hasLocation) {
+      verification_method = 'qr_geo_face';
+    }
+
+    // Consume face proof jti right before the write (deferred consumption)
+    if (ctx.consumeFaceProof) {
+      await ctx.consumeFaceProof();
+    }
 
     // Create today's attendance record
     const record = new Attendance({
@@ -129,7 +141,15 @@ async function checkin(req, res) {
       check_in_longitude: ctx.longitude,
     });
 
-    await record.save();
+    try {
+      await record.save();
+    } catch (saveErr) {
+      // If Attendance write fails, best-effort rollback the face proof consumption
+      if (ctx.rollbackFaceProof) {
+        await ctx.rollbackFaceProof();
+      }
+      throw saveErr;
+    }
 
     return res.status(201).json({
       message: 'Check-in successful.',
@@ -174,6 +194,7 @@ async function checkout(req, res) {
       employee_id,
       todayStart,
       todayEnd,
+      routeAction: 'checkout',
     };
 
     // Run the verification pipeline
@@ -187,9 +208,11 @@ async function checkout(req, res) {
     record.check_out_latitude = ctx.latitude;
     record.check_out_longitude = ctx.longitude;
 
-    // Upgrade verification method if location was provided
+    // Upgrade verification method if location / face was provided
     const hasLocation = ctx.latitude != null && ctx.longitude != null;
-    if (hasLocation && record.verification_method === 'qr_only') {
+    if (ctx.face_verified && hasLocation) {
+      record.verification_method = 'qr_geo_face';
+    } else if (hasLocation && record.verification_method === 'qr_only') {
       record.verification_method = 'qr_geo';
     }
 
@@ -197,7 +220,19 @@ async function checkout(req, res) {
     record.working_hours = computeWorkingHours(record.check_in_time, now);
     record.status = getCheckoutStatus(record.working_hours, getCheckinStatus(record.check_in_time));
 
-    await record.save();
+    // Consume face proof jti right before the write (deferred consumption)
+    if (ctx.consumeFaceProof) {
+      await ctx.consumeFaceProof();
+    }
+
+    try {
+      await record.save();
+    } catch (saveErr) {
+      if (ctx.rollbackFaceProof) {
+        await ctx.rollbackFaceProof();
+      }
+      throw saveErr;
+    }
 
     return res.status(200).json({
       message: 'Check-out successful.',

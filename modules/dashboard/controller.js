@@ -4,6 +4,7 @@ const Department = require('../../shared/models/Department');
 const LeaveRequest = require('../../shared/models/LeaveRequest');
 const User = require('../../shared/models/User');
 const { getGeofenceMode } = require('../../shared/config/geofence');
+const { getFaceMode } = require('../../shared/config/face');
 
 /**
  * COORDINATION NOTE (Aivin):
@@ -128,6 +129,7 @@ exports.getSummary = async (req, res) => {
     const attendanceRate = totalEmployees > 0 ? Math.round((presentCount / totalEmployees) * 100) : 0;
 
     const geofenceMode = getGeofenceMode(req);
+    const faceMode = getFaceMode(req);
 
     return res.status(200).json({
       success: true,
@@ -144,7 +146,8 @@ exports.getSummary = async (req, res) => {
         early_leave: earlyLeaveCount,
         attendance_rate: attendanceRate,
         late_arrivals_list: lateArrivalsList,
-        geofence_mode: geofenceMode
+        geofence_mode: geofenceMode,
+        face_mode: faceMode
       }
     });
   } catch (error) {

@@ -6,6 +6,7 @@
 const User = require("../../shared/models/User");
 const Employee = require("../../shared/models/Employee");
 const Department = require("../../shared/models/Department");
+const FaceTemplate = require("../../shared/models/FaceTemplate");
 const bcrypt = require("bcryptjs");
 
 const WRITE_ROLES = ["manager", "admin"];
@@ -40,6 +41,14 @@ exports.listEmployees = async (req, res) => {
       .lean();
 
     // Map to flat structure for frontend compatibility
+    // Batch-fetch face enrolment status
+    const empIds = employees.map(e => e._id);
+    const enrolledTemplates = await FaceTemplate.find(
+      { employee_id: { $in: empIds } },
+      { employee_id: 1 } // never select embedding
+    ).lean();
+    const enrolledSet = new Set(enrolledTemplates.map(t => String(t.employee_id)));
+
     let mapped = employees.map(e => ({
       id: e._id,
       emp_id: e._id, // we don't have emp_id in mongoose schema, using _id
@@ -50,7 +59,8 @@ exports.listEmployees = async (req, res) => {
       department_name: e.department_id ? e.department_id.department_name : null,
       status: e.status,
       join_date: e.date_of_joining,
-      designation: e.designation
+      designation: e.designation,
+      face_enrolled: enrolledSet.has(String(e._id)),
     }));
 
     if (search) {
@@ -88,6 +98,12 @@ exports.getEmployee = async (req, res) => {
         return res.status(403).json({ error: "Access denied." });
       }
     }
+
+    // Check face enrolment (never return embedding)
+    const faceTemplate = await FaceTemplate.findOne(
+      { employee_id: e._id },
+      { employee_id: 1 }
+    ).lean();
     
     res.json({
       id: e._id,
@@ -98,7 +114,8 @@ exports.getEmployee = async (req, res) => {
       department_name: e.department_id ? e.department_id.department_name : null,
       status: e.status,
       join_date: e.date_of_joining,
-      designation: e.designation
+      designation: e.designation,
+      face_enrolled: !!faceTemplate,
     });
   } catch (err) {
     res.status(500).json({ error: "Internal server error." });

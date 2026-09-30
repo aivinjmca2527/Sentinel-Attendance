@@ -75,6 +75,7 @@ module.exports = {
   getGeofenceMode,
   setGeofenceMode,
   getMaxAccuracy,
+  isTestOverrideAuthorized,
   get GEOFENCE_MODE() {
     return getGeofenceMode();
   },

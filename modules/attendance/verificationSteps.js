@@ -349,6 +349,213 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
+// ─── Face Proof Verification Step ───────────────────────────────────────────
+
+const jwt = require('jsonwebtoken');
+const FaceTemplate = require('../../shared/models/FaceTemplate');
+const FaceProofUse = require('../../shared/models/FaceProofUse');
+const { getFaceMode } = require('../../shared/config/face');
+
+/**
+ * Step 5: Verify face proof token.
+ * - Placed after verifyGeofence and before the duplicate-scan check.
+ * - Mode handling mirrors geofence: off → skip; log → record & continue; enforce → reject.
+ * - The jti is NOT consumed here; instead a ctx.consumeFaceProof() function is set
+ *   that the controller calls right before the Attendance write (so earlier failures
+ *   like outside-geofence don't burn the proof).
+ *
+ * Sets ctx.face_verified = true if a valid proof was accepted.
+ */
+async function verifyFaceProof(ctx) {
+  const mode = getFaceMode(ctx);
+
+  // Determine route action from ctx
+  const routeAction = ctx.routeAction || 'any'; // 'checkin' or 'checkout' or 'any'
+
+  if (mode === 'off') {
+    ctx.face_verified = false;
+    return;
+  }
+
+  const FACE_PROOF_SECRET = process.env.FACE_PROOF_SECRET;
+  if (!FACE_PROOF_SECRET) {
+    // This shouldn't happen if startup validation passed, but guard anyway
+    console.error('[Face] FACE_PROOF_SECRET not configured but FACE_MODE is not off.');
+    if (mode === 'enforce') {
+      const err = new Error('FACE_PROOF_REQUIRED');
+      err.status = 403;
+      err.body = { error: 'FACE_PROOF_REQUIRED' };
+      throw err;
+    }
+    return;
+  }
+
+  // Check if employee has a template enrolled (in enforce, require it)
+  const template = await FaceTemplate.findOne({ employee_id: ctx.employee_id });
+  if (!template) {
+    if (mode === 'enforce') {
+      const err = new Error('FACE_NOT_ENROLLED');
+      err.status = 403;
+      err.body = { error: 'FACE_NOT_ENROLLED' };
+      throw err;
+    }
+    // log mode: no template means nothing to validate, continue
+    ctx.face_verified = false;
+    return;
+  }
+
+  const face_proof = ctx.body.face_proof;
+
+  if (!face_proof) {
+    if (mode === 'enforce') {
+      const err = new Error('FACE_PROOF_REQUIRED');
+      err.status = 403;
+      err.body = { error: 'FACE_PROOF_REQUIRED' };
+      throw err;
+    }
+    // log mode: record alert and continue
+    try {
+      await SecurityAlert.create({
+        employee_id: ctx.employee_id,
+        alert_type: 'face_proof_invalid',
+        severity: 'high',
+        message: 'Attendance recorded without face proof (FACE_MODE=log).',
+        metadata: {},
+      });
+    } catch (alertErr) {
+      console.error(
+        `[ALERT_WRITE_FAILURE] employee_id=${ctx.employee_id} alert_type=face_proof_invalid error=${alertErr.message}`
+      );
+    }
+    ctx.face_verified = false;
+    return;
+  }
+
+  // Validate the JWT
+  let payload;
+  try {
+    payload = jwt.verify(face_proof, FACE_PROOF_SECRET);
+  } catch (jwtErr) {
+    const errorCode = jwtErr.name === 'TokenExpiredError' ? 'FACE_PROOF_EXPIRED' : 'FACE_PROOF_INVALID';
+
+    if (mode === 'enforce') {
+      const err = new Error(errorCode);
+      err.status = 403;
+      err.body = { error: errorCode };
+      throw err;
+    }
+    // log mode
+    try {
+      await SecurityAlert.create({
+        employee_id: ctx.employee_id,
+        alert_type: 'face_proof_invalid',
+        severity: 'high',
+        message: `Face proof ${errorCode.toLowerCase().replace(/_/g, ' ')} (FACE_MODE=log).`,
+        metadata: {},
+      });
+    } catch (alertErr) {
+      console.error(
+        `[ALERT_WRITE_FAILURE] employee_id=${ctx.employee_id} alert_type=face_proof_invalid error=${alertErr.message}`
+      );
+    }
+    ctx.face_verified = false;
+    return;
+  }
+
+  // Validate claims
+  if (payload.purpose !== 'face_proof') {
+    const code = 'FACE_PROOF_INVALID';
+    if (mode === 'enforce') {
+      const err = new Error(code);
+      err.status = 403;
+      err.body = { error: code };
+      throw err;
+    }
+    ctx.face_verified = false;
+    return;
+  }
+
+  if (String(payload.employee_id) !== String(ctx.employee_id)) {
+    const code = 'FACE_PROOF_INVALID';
+    if (mode === 'enforce') {
+      const err = new Error(code);
+      err.status = 403;
+      err.body = { error: code };
+      throw err;
+    }
+    ctx.face_verified = false;
+    return;
+  }
+
+  // Check intended_action
+  if (payload.intended_action !== 'any' && routeAction !== 'any') {
+    if (payload.intended_action !== routeAction) {
+      const code = 'FACE_PROOF_ACTION_MISMATCH';
+      if (mode === 'enforce') {
+        const err = new Error(code);
+        err.status = 403;
+        err.body = { error: code };
+        throw err;
+      }
+      ctx.face_verified = false;
+      return;
+    }
+  }
+
+  // Set up deferred jti consumption (consumed right before Attendance write)
+  ctx.face_verified = true;
+  ctx.faceProofJti = payload.jti;
+  ctx.faceProofExp = payload.exp;
+
+  ctx.consumeFaceProof = async function consumeFaceProof() {
+    try {
+      await FaceProofUse.create({
+        jti: payload.jti,
+        employee_id: ctx.employee_id,
+        consumed_at: new Date(),
+        expires_at: new Date(payload.exp * 1000),
+      });
+    } catch (insertErr) {
+      // Duplicate key = proof reused
+      if (insertErr.code === 11000 || (insertErr.message && insertErr.message.includes('duplicate key'))) {
+        const code = 'FACE_PROOF_REUSED';
+        if (mode === 'enforce') {
+          const err = new Error(code);
+          err.status = 403;
+          err.body = { error: code };
+          throw err;
+        }
+        // log mode — alert but continue
+        try {
+          await SecurityAlert.create({
+            employee_id: ctx.employee_id,
+            alert_type: 'face_proof_invalid',
+            severity: 'high',
+            message: 'Face proof reused (FACE_MODE=log).',
+            metadata: { jti: payload.jti },
+          });
+        } catch (alertErr) {
+          console.error(
+            `[ALERT_WRITE_FAILURE] employee_id=${ctx.employee_id} alert_type=face_proof_invalid error=${alertErr.message}`
+          );
+        }
+        ctx.face_verified = false;
+        return;
+      }
+      throw insertErr;
+    }
+  };
+
+  // Also store a rollback function in case the Attendance write fails
+  ctx.rollbackFaceProof = async function rollbackFaceProof() {
+    try {
+      await FaceProofUse.deleteOne({ jti: payload.jti });
+    } catch (_e) {
+      // best-effort
+    }
+  };
+}
+
 module.exports = {
   runVerificationPipeline,
   verifyQrSignatureAndExpiry,
@@ -356,5 +563,6 @@ module.exports = {
   verifyNoDuplicateCheckin,
   verifyCheckoutPreconditions,
   verifyGeofence,
+  verifyFaceProof,
   haversineDistance,
 };

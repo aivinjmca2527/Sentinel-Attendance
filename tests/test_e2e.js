@@ -11,6 +11,9 @@ const path = require('path');
 const TEST_OVERRIDE_SECRET = process.env.TEST_OVERRIDE_SECRET || 'sentinel-test-secret-123';
 process.env.NODE_ENV = 'test';
 process.env.TEST_OVERRIDE_SECRET = TEST_OVERRIDE_SECRET;
+process.env.FACE_PROVIDER = 'mock';
+process.env.FACE_PROOF_SECRET = 'test-face-proof-secret-xyz';
+process.env.FACE_MODE = 'off'; // default off; tests override via header
 
 let passed = 0, failed = 0, skipped = 0;
 let spawnedServer = null;
@@ -32,6 +35,67 @@ function req(method, path, body, token, customHeaders = {}) {
     });
     r.on('error', reject);
     if (body) r.write(JSON.stringify(body));
+    r.end();
+  });
+}
+
+/**
+ * Multipart form-data request helper for face image uploads.
+ * fields: { key: value } for text fields
+ * files: [{ field, filename, buffer, contentType }]
+ */
+function multipartReq(method, urlPath, fields, files, token, customHeaders = {}) {
+  return new Promise((resolve, reject) => {
+    const boundary = '----TestBoundary' + Date.now();
+    const parts = [];
+
+    for (const [key, val] of Object.entries(fields || {})) {
+      parts.push(
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="${key}"\r\n\r\n` +
+        `${val}\r\n`
+      );
+    }
+
+    for (const f of (files || [])) {
+      parts.push(
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="${f.field}"; filename="${f.filename}"\r\n` +
+        `Content-Type: ${f.contentType || 'image/jpeg'}\r\n\r\n`
+      );
+      parts.push(f.buffer);
+      parts.push('\r\n');
+    }
+    parts.push(`--${boundary}--\r\n`);
+
+    // Compute total length
+    let totalLen = 0;
+    const bufParts = parts.map(p => {
+      const buf = Buffer.isBuffer(p) ? p : Buffer.from(p, 'utf-8');
+      totalLen += buf.length;
+      return buf;
+    });
+    const bodyBuf = Buffer.concat(bufParts, totalLen);
+
+    const opts = {
+      hostname: 'localhost', port: 3000, path: urlPath, method,
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': bodyBuf.length,
+        ...customHeaders,
+      }
+    };
+    if (token) opts.headers['Authorization'] = `Bearer ${token}`;
+    const r = http.request(opts, res => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => {
+        try { resolve({ s: res.statusCode, b: JSON.parse(d) }); }
+        catch { resolve({ s: res.statusCode, b: d }); }
+      });
+    });
+    r.on('error', reject);
+    r.write(bodyBuf);
     r.end();
   });
 }

@@ -25,6 +25,7 @@ const dashboardRoutes = require('./modules/dashboard/routes');               // 
 const reportRoutes = require('./modules/reports/routes');                 // Amina
 const leaveRoutes = require('./modules/leave/routes');                    // Nandana
 const securityRoutes = require('./modules/security/routes');              // Aivin
+const faceRoutes = require('./modules/face/routes');                      // Aivin (face auth)
 
 // ─── App ─────────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ const app = express();
 app.use(cors({
   origin: (origin, cb) => cb(null, true),
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Geofence-Mode", "X-Face-Mode", "X-Test-Secret"],
 }));
 
 app.use(express.json());
@@ -65,6 +66,7 @@ app.use('/api/dashboard', dashboardRoutes);                 // Amina
 app.use('/api/reports', reportRoutes);                    // Amina
 app.use('/api/leave', leaveRoutes);                     // Nandana
 app.use('/api/security', securityRoutes);                // Aivin
+app.use('/api/face', faceRoutes);                        // Aivin (face auth)
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
@@ -82,6 +84,13 @@ app.use((err, _req, res, _next) => {
 // ─── Start after DB is ready ─────────────────────────────────────────────────
 
 initPromise.then(() => {
+  // Startup validation: FACE_PROOF_SECRET required when FACE_MODE is log or enforce
+  const faceMode = (process.env.FACE_MODE || 'off').toLowerCase().trim();
+  if ((faceMode === 'log' || faceMode === 'enforce') && !process.env.FACE_PROOF_SECRET) {
+    console.error('[FATAL] FACE_PROOF_SECRET is required when FACE_MODE is "' + faceMode + '". Set it in .env or disable face auth with FACE_MODE=off.');
+    process.exit(1);
+  }
+
   app.listen(PORT, () => {
     console.log(`\n✅ Sentinel API running → http://localhost:${PORT}`);
     console.log(`   Health: http://localhost:${PORT}/api/health`);
