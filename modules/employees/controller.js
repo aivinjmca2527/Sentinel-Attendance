@@ -19,10 +19,20 @@ const WRITE_ROLES = ["manager", "admin"];
 exports.listEmployees = async (req, res) => {
   try {
     const { search, status, dept } = req.query;
+    const role = (req.user?.role || '').toLowerCase();
     
     let matchQuery = {};
     if (status) matchQuery.status = status;
-    if (dept) matchQuery.department_id = dept;
+
+    if (role === 'manager') {
+      const deptId = req.user?.department_id;
+      if (!deptId) {
+        return res.json([]);
+      }
+      matchQuery.department_id = deptId;
+    } else {
+      if (dept) matchQuery.department_id = dept;
+    }
 
     let employees = await Employee.find(matchQuery)
       .populate("user_id", "name email")
@@ -69,6 +79,15 @@ exports.getEmployee = async (req, res) => {
       .lean();
       
     if (!e) return res.status(404).json({ error: "Employee not found." });
+
+    const role = (req.user?.role || '').toLowerCase();
+    if (role === 'manager') {
+      const managerDeptId = req.user?.department_id ? String(req.user.department_id) : null;
+      const empDeptId = e.department_id ? String(e.department_id._id || e.department_id) : null;
+      if (!managerDeptId || empDeptId !== managerDeptId) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+    }
     
     res.json({
       id: e._id,
@@ -90,9 +109,18 @@ exports.getEmployee = async (req, res) => {
 
 exports.createEmployee = async (req, res) => {
   try {
-    const { name, email, phone, role, department_id, status, join_date, designation } = req.body || {};
+    const role = (req.user?.role || '').toLowerCase();
+    let { name, email, phone, role: empRole, department_id, status, join_date, designation } = req.body || {};
     if (!name || !email || !designation) {
       return res.status(400).json({ error: "name, email, and designation are required." });
+    }
+
+    if (role === 'manager') {
+      const managerDeptId = req.user?.department_id;
+      if (!managerDeptId) {
+        return res.status(400).json({ error: "Manager does not have an assigned department." });
+      }
+      department_id = managerDeptId;
     }
     
     // Check if user email exists
@@ -107,7 +135,7 @@ exports.createEmployee = async (req, res) => {
       name: name.trim(),
       email: email.trim().toLowerCase(),
       password_hash: defaultPassword,
-      role: role || "employee"
+      role: empRole || "employee"
     });
 
     // Create Employee
@@ -134,20 +162,38 @@ exports.updateEmployee = async (req, res) => {
     const emp = await Employee.findById(req.params.id);
     if (!emp) return res.status(404).json({ error: "Employee not found." });
 
-    const { name, email, phone, role, department_id, status, join_date, designation } = req.body || {};
+    const role = (req.user?.role || '').toLowerCase();
+    if (role === 'manager') {
+      const managerDeptId = req.user?.department_id ? String(req.user.department_id) : null;
+      const empDeptId = emp.department_id ? String(emp.department_id) : null;
+      if (!managerDeptId || empDeptId !== managerDeptId) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      const { department_id } = req.body || {};
+      if (department_id !== undefined && department_id !== null && String(department_id) !== managerDeptId) {
+        return res.status(400).json({ error: "Managers cannot assign employees to a different department." });
+      }
+    }
+
+    const { name, email, phone, role: newRole, department_id, status, join_date, designation } = req.body || {};
     
-    if (name || email || role) {
+    if (name || email || newRole) {
       const user = await User.findById(emp.user_id);
       if (user) {
         if (name) user.name = name;
         if (email) user.email = email;
-        if (role) user.role = role;
+        if (newRole) user.role = newRole;
         await user.save();
       }
     }
     
     if (phone !== undefined) emp.contact_number = phone;
-    if (department_id !== undefined) emp.department_id = department_id;
+    if (role === 'manager') {
+      if (department_id !== undefined) emp.department_id = req.user.department_id;
+    } else {
+      if (department_id !== undefined) emp.department_id = department_id;
+    }
     if (status !== undefined) emp.status = status;
     if (join_date !== undefined) emp.date_of_joining = join_date;
     if (designation !== undefined) emp.designation = designation;
@@ -167,6 +213,15 @@ exports.deleteEmployee = async (req, res) => {
   try {
     const emp = await Employee.findById(req.params.id);
     if (!emp) return res.status(404).json({ error: "Employee not found." });
+
+    const role = (req.user?.role || '').toLowerCase();
+    if (role === 'manager') {
+      const managerDeptId = req.user?.department_id ? String(req.user.department_id) : null;
+      const empDeptId = emp.department_id ? String(emp.department_id) : null;
+      if (!managerDeptId || empDeptId !== managerDeptId) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+    }
     
     // Delete associated user
     await User.findByIdAndDelete(emp.user_id);
@@ -229,7 +284,7 @@ exports.getDepartment = async (req, res) => {
 
 exports.createDepartment = async (req, res) => {
   try {
-    const { name, manager } = req.body || {};
+    const { name, manager, geofence_lat, geofence_lng, geofence_radius_m } = req.body || {};
     if (!name) {
       return res.status(400).json({ error: "name is required." });
     }
@@ -241,7 +296,10 @@ exports.createDepartment = async (req, res) => {
 
     const newDept = await Department.create({
       department_name: name.trim(),
-      manager_id: manager || null
+      manager_id: manager || null,
+      geofence_lat: geofence_lat != null ? Number(geofence_lat) : 10.0159,
+      geofence_lng: geofence_lng != null ? Number(geofence_lng) : 76.3419,
+      geofence_radius_m: geofence_radius_m != null ? Number(geofence_radius_m) : 200
     });
     
     res.status(201).json(newDept);
@@ -257,10 +315,13 @@ exports.updateDepartment = async (req, res) => {
     const dept = await Department.findById(req.params.id);
     if (!dept) return res.status(404).json({ error: "Department not found." });
 
-    const { name, manager } = req.body || {};
+    const { name, manager, geofence_lat, geofence_lng, geofence_radius_m } = req.body || {};
     
     if (name) dept.department_name = name.trim();
     if (manager !== undefined) dept.manager_id = manager;
+    if (geofence_lat !== undefined) dept.geofence_lat = geofence_lat !== null ? Number(geofence_lat) : null;
+    if (geofence_lng !== undefined) dept.geofence_lng = geofence_lng !== null ? Number(geofence_lng) : null;
+    if (geofence_radius_m !== undefined) dept.geofence_radius_m = Number(geofence_radius_m);
     
     await dept.save();
     res.json(dept);

@@ -49,4 +49,63 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { requireAuth, requireRole, JWT_SECRET };
+/**
+ * Helper: Reliably resolves a manager's department_id by checking:
+ * 1. Employee.department_id (for the given employeeId or userId)
+ * 2. Department.findOne({ manager_id: targetEmpId })
+ * Returns department_id (as string/ObjectId) if found, or null if neither resolves.
+ */
+async function getManagerDepartment(userId, employeeId) {
+  try {
+    const User = require('../models/User');
+    const Employee = require('../models/Employee');
+    const Department = require('../models/Department');
+
+    let emp = null;
+    let targetUserId = userId;
+
+    if (employeeId) {
+      emp = await Employee.findById(employeeId).lean();
+      if (emp && !targetUserId) {
+        targetUserId = emp.user_id;
+      }
+    }
+
+    if (!emp && targetUserId) {
+      emp = await Employee.findOne({ user_id: targetUserId }).lean();
+    }
+
+    // If target user exists and role is known, verify user is a manager
+    if (targetUserId) {
+      const user = await User.findById(targetUserId).select('role').lean();
+      if (user && user.role && String(user.role).toLowerCase() !== 'manager') {
+        return null;
+      }
+    }
+
+    if (!emp) {
+      return null;
+    }
+
+    // 1. Check Employee.department_id
+    if (emp.department_id) {
+      return emp.department_id;
+    }
+
+    // 2. Check Department.findOne({ manager_id: targetEmpId })
+    const targetEmpId = emp._id || employeeId;
+    if (targetEmpId) {
+      const dept = await Department.findOne({ manager_id: targetEmpId }).select('_id').lean();
+      if (dept && dept._id) {
+        return dept._id;
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error('[getManagerDepartment] Error resolving manager department:', err);
+    return null;
+  }
+}
+
+module.exports = { requireAuth, requireRole, getManagerDepartment, JWT_SECRET };

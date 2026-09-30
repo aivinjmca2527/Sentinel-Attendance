@@ -201,7 +201,7 @@
 <div class="flex items-center gap-lg">
 <div class="relative">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-variation-settings: 'FILL' 0;">search</span>
-<input class="pl-10 pr-4 py-2 bg-surface-container-low border border-border rounded-lg text-body-sm font-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary w-64" placeholder="Search requests..." type="text">
+<input id="leave-search-input" class="pl-10 pr-4 py-2 bg-surface-container-low border border-border rounded-lg text-body-sm font-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary w-64" placeholder="Search requests..." type="text">
 </div>
 <div class="flex items-center gap-sm">
 <button class="p-xs rounded-full hover:bg-surface-container-low text-on-surface-variant transition-transform hover:scale-95">
@@ -569,19 +569,42 @@
       const dept = emp.department_id || {};
       const name = (user.name || '').toLowerCase();
       const deptName = (dept.department_name || dept.name || '').toLowerCase();
-      return name.includes(q) || deptName.includes(q);
+      const desig = (emp.designation || '').toLowerCase();
+      const reason = (req.reason || '').toLowerCase();
+      const leaveType = (leaveTypeLabel(req.leave_type) + ' ' + (req.leave_type || '')).toLowerCase();
+      const status = (req.status || '').toLowerCase();
+      const haystack = `${name} ${deptName} ${desig} ${reason} ${leaveType} ${status}`;
+      return haystack.includes(q);
     });
+  }
+
+  function applyLeaveSearch() {
+    const filtered = filteredRequests();
+    renderCards(filtered);
+    if (filtered.length > 0) {
+      if (!selectedId || !filtered.find(r => r._id === selectedId)) {
+        selectRequest(filtered[0]._id);
+      }
+    } else {
+      renderEmptyDetail();
+    }
   }
 
   if (searchInput) {
-    searchInput.addEventListener('input', () => {
-      const filtered = filteredRequests();
-      renderCards(filtered);
-    });
+    searchInput.addEventListener('input', applyLeaveSearch);
   }
 
   // ── Boot ────────────────────────────────────────────────────────
-  loadRequests('pending');
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialSearch = urlParams.get('search');
+  if (initialSearch && searchInput) {
+    searchInput.value = initialSearch;
+  }
+  loadRequests('pending').then(() => {
+    if (initialSearch) {
+      applyLeaveSearch();
+    }
+  });
 })();
 </script>
 </body></html>

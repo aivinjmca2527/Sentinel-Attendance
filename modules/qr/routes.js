@@ -13,9 +13,10 @@ const qrController = require('./controller');
 // Rate limiting for unauthenticated kiosk display endpoint.
 // Reuses the express-rate-limit pattern used in server.js.
 // Default allows steady 5s kiosk polling (~180 req / 15m) while blocking rapid abuse.
+// In development/test environments, uses generous limit (5000) for local pairing/testing.
 const kioskLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'test' ? 1000 : 300,
+  max: process.env.NODE_ENV === 'production' ? 300 : 5000,
   message: { error: 'Too many kiosk display requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,

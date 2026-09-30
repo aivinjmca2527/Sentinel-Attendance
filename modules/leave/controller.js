@@ -22,6 +22,7 @@ const Attendance   = require('../../shared/models/Attendance');
 const Employee     = require('../../shared/models/Employee');
 const User         = require('../../shared/models/User');
 const LeaveBalance = require('../../shared/models/LeaveBalance');
+const { getManagerDepartment } = require('../../shared/middleware/auth.middleware');
 
 // ──────────────────────────────────────────────────────────────────────
 // Helper: normalise a Date to midnight UTC (strips time component)
@@ -149,7 +150,8 @@ exports.submitLeave = async (req, res) => {
 // ──────────────────────────────────────────────────────────────────────
 exports.getLeaveRequests = async (req, res) => {
   try {
-    const { role, employee_id, department_id } = req.user;
+    const role = (req.user?.role || '').toLowerCase();
+    const employee_id = req.user?.employee_id;
     let filter = {};
 
     if (role === 'employee') {
@@ -158,12 +160,28 @@ exports.getLeaveRequests = async (req, res) => {
 
     } else if (role === 'manager') {
       // Managers see requests from employees in their own department.
+      let deptId = req.user?.department_id;
+      if (!deptId) {
+        deptId = await getManagerDepartment(req.user?.id || req.user?._id, employee_id);
+      }
+
+      if (!deptId) {
+        return res.json([]);
+      }
+
       const deptEmployees = await Employee.find({
-        department_id: department_id,
+        department_id: deptId,
       }).select('_id').lean();
 
       const deptEmployeeIds = deptEmployees.map((e) => e._id);
-      filter.employee_id = { $in: deptEmployeeIds };
+      if (req.query.employee_id) {
+        if (!deptEmployeeIds.map(String).includes(String(req.query.employee_id))) {
+          return res.json([]);
+        }
+        filter.employee_id = req.query.employee_id;
+      } else {
+        filter.employee_id = { $in: deptEmployeeIds };
+      }
 
     } else if (role === 'admin') {
       // Admins see everything, with optional query-string filters.
@@ -176,6 +194,8 @@ exports.getLeaveRequests = async (req, res) => {
       if (req.query.employee_id) {
         filter.employee_id = req.query.employee_id;
       }
+    } else {
+      return res.status(403).json({ error: 'Access denied.' });
     }
 
     // Honour ?status= for all roles
@@ -247,24 +267,41 @@ exports.getMyLeaveRequests = async (req, res) => {
 // ──────────────────────────────────────────────────────────────────────
 exports.getAdminLeaveRequests = async (req, res) => {
   try {
-    const { role, department_id } = req.user;
+    const role = (req.user?.role || '').toLowerCase();
     let filter = {};
 
     if (role === 'manager') {
-      const deptEmployees = await Employee.find({
-        department_id: department_id,
-      }).select('_id').lean();
-      filter.employee_id = { $in: deptEmployees.map((e) => e._id) };
-    }
-    // admin sees all
+      let deptId = req.user?.department_id;
+      if (!deptId) {
+        deptId = await getManagerDepartment(req.user?.id || req.user?._id, req.user?.employee_id);
+      }
 
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.leave_type) filter.leave_type = req.query.leave_type;
-    if (req.query.department_id && role === 'admin') {
+      if (!deptId) {
+        return res.json([]);
+      }
+
       const deptEmployees = await Employee.find({
-        department_id: req.query.department_id,
+        department_id: deptId,
       }).select('_id').lean();
       filter.employee_id = { $in: deptEmployees.map((e) => e._id) };
+      // Ignore any client ?department_id= override attempt for managers
+    } else if (role === 'admin') {
+      if (req.query.department_id) {
+        const deptEmployees = await Employee.find({
+          department_id: req.query.department_id,
+        }).select('_id').lean();
+        filter.employee_id = { $in: deptEmployees.map((e) => e._id) };
+      }
+    } else {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    if (req.query.leave_type) {
+      filter.leave_type = req.query.leave_type;
     }
 
     let requests = await LeaveRequest.find(filter)
@@ -322,14 +359,32 @@ exports.getLeaveBalance = async (req, res) => {
 // ──────────────────────────────────────────────────────────────────────
 exports.getLeaveStats = async (req, res) => {
   try {
-    const { role, department_id } = req.user;
+    const role = (req.user?.role || '').toLowerCase();
     let matchFilter = {};
 
     if (role === 'manager') {
+      let deptId = req.user?.department_id;
+      if (!deptId) {
+        deptId = await getManagerDepartment(req.user?.id || req.user?._id, req.user?.employee_id);
+      }
+
+      if (!deptId) {
+        return res.json({ pending: 0, approved: 0, denied: 0, cancelled: 0, total: 0 });
+      }
+
       const deptEmployees = await Employee.find({
-        department_id: department_id,
+        department_id: deptId,
       }).select('_id').lean();
       matchFilter.employee_id = { $in: deptEmployees.map((e) => e._id) };
+    } else if (role === 'admin') {
+      if (req.query.department_id) {
+        const deptEmployees = await Employee.find({
+          department_id: req.query.department_id,
+        }).select('_id').lean();
+        matchFilter.employee_id = { $in: deptEmployees.map((e) => e._id) };
+      }
+    } else {
+      return res.status(403).json({ error: 'Access denied.' });
     }
 
     const stats = await LeaveRequest.aggregate([
@@ -387,21 +442,27 @@ exports.getLeaveById = async (req, res) => {
     }
 
     // Authorization check
-    const { role, employee_id, department_id } = req.user;
+    const role = (req.user?.role || '').toLowerCase();
+    const employee_id = req.user?.employee_id;
     if (role === 'employee') {
-      if (leaveRequest.employee_id._id.toString() !== employee_id.toString()) {
+      if (leaveRequest.employee_id._id.toString() !== String(employee_id)) {
         return res.status(403).json({ error: 'You can only view your own leave requests.' });
       }
     } else if (role === 'manager') {
-      const requesterDeptId = leaveRequest.employee_id.department_id
-        ? leaveRequest.employee_id.department_id._id.toString()
+      let managerDeptId = req.user?.department_id;
+      if (!managerDeptId) {
+        managerDeptId = await getManagerDepartment(req.user?.id || req.user?._id, employee_id);
+      }
+      const requesterDeptId = leaveRequest.employee_id?.department_id
+        ? (leaveRequest.employee_id.department_id._id || leaveRequest.employee_id.department_id).toString()
         : null;
-      const managerDeptId = department_id ? department_id.toString() : null;
-      if (!requesterDeptId || requesterDeptId !== managerDeptId) {
+      const mgrDeptStr = managerDeptId ? managerDeptId.toString() : null;
+      if (!requesterDeptId || !mgrDeptStr || requesterDeptId !== mgrDeptStr) {
         return res.status(403).json({ error: 'You can only view requests from your department.' });
       }
+    } else if (role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied.' });
     }
-    // admin can view any
 
     return res.json(leaveRequest);
   } catch (error) {
@@ -443,19 +504,24 @@ exports.approveLeave = async (req, res) => {
     }
 
     // --- Department check (manager only) ---
-    if (req.user.role === 'manager') {
-      const requesterDeptId = leaveRequest.employee_id.department_id
-        ? leaveRequest.employee_id.department_id.toString()
+    const role = (req.user?.role || '').toLowerCase();
+    if (role === 'manager') {
+      let managerDeptId = req.user?.department_id;
+      if (!managerDeptId) {
+        managerDeptId = await getManagerDepartment(req.user?.id || req.user?._id, req.user?.employee_id);
+      }
+      const requesterDeptId = leaveRequest.employee_id?.department_id
+        ? (leaveRequest.employee_id.department_id._id || leaveRequest.employee_id.department_id).toString()
         : null;
-      const managerDeptId = req.user.department_id
-        ? req.user.department_id.toString()
-        : null;
+      const mgrDeptStr = managerDeptId ? managerDeptId.toString() : null;
 
-      if (!requesterDeptId || requesterDeptId !== managerDeptId) {
+      if (!requesterDeptId || !mgrDeptStr || requesterDeptId !== mgrDeptStr) {
         return res.status(403).json({
           error: 'You can only approve requests from employees in your department.',
         });
       }
+    } else if (role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied.' });
     }
 
     // --- Leave balance check & deduction ---
@@ -479,7 +545,7 @@ exports.approveLeave = async (req, res) => {
 
     // --- Update leave request ---
     leaveRequest.status         = 'approved';
-    leaveRequest.approved_by    = req.user.employee_id;
+    leaveRequest.approved_by    = req.user.employee_id || null;
     leaveRequest.reviewed_at    = new Date();
     leaveRequest.number_of_days = numberOfDays;
     await leaveRequest.save();
@@ -558,24 +624,29 @@ exports.denyLeave = async (req, res) => {
     }
 
     // --- Department check (manager only) ---
-    if (req.user.role === 'manager') {
-      const requesterDeptId = leaveRequest.employee_id.department_id
-        ? leaveRequest.employee_id.department_id.toString()
+    const role = (req.user?.role || '').toLowerCase();
+    if (role === 'manager') {
+      let managerDeptId = req.user?.department_id;
+      if (!managerDeptId) {
+        managerDeptId = await getManagerDepartment(req.user?.id || req.user?._id, req.user?.employee_id);
+      }
+      const requesterDeptId = leaveRequest.employee_id?.department_id
+        ? (leaveRequest.employee_id.department_id._id || leaveRequest.employee_id.department_id).toString()
         : null;
-      const managerDeptId = req.user.department_id
-        ? req.user.department_id.toString()
-        : null;
+      const mgrDeptStr = managerDeptId ? managerDeptId.toString() : null;
 
-      if (!requesterDeptId || requesterDeptId !== managerDeptId) {
+      if (!requesterDeptId || !mgrDeptStr || requesterDeptId !== mgrDeptStr) {
         return res.status(403).json({
           error: 'You can only deny requests from employees in your department.',
         });
       }
+    } else if (role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied.' });
     }
 
     // --- Update leave request ---
     leaveRequest.status         = 'denied';
-    leaveRequest.approved_by    = req.user.employee_id;
+    leaveRequest.approved_by    = req.user.employee_id || null;
     leaveRequest.denial_reason  = req.body.reason || null;
     leaveRequest.reviewed_at    = new Date();
     await leaveRequest.save();
@@ -609,7 +680,7 @@ exports.cancelLeave = async (req, res) => {
     }
 
     // Only the owning employee can cancel
-    if (leaveRequest.employee_id.toString() !== req.user.employee_id.toString()) {
+    if (!req.user?.employee_id || leaveRequest.employee_id.toString() !== req.user.employee_id.toString()) {
       return res.status(403).json({ error: 'You can only cancel your own leave requests.' });
     }
 

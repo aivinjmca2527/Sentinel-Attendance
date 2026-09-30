@@ -42,9 +42,23 @@ async function getCurrentQR(req, res) {
 async function getRecentScans(req, res) {
   try {
     const Attendance = require('../../shared/models/Attendance');
-    const records = await Attendance.find({
-      check_in_time: { $ne: null },
-    })
+    const Employee = require('../../shared/models/Employee');
+    const role = (req.user?.role || '').toLowerCase();
+
+    const filter = { check_in_time: { $ne: null } };
+
+    if (role === 'manager') {
+      const deptId = req.user?.department_id;
+      if (!deptId) {
+        return res.json([]);
+      }
+      const deptEmployees = await Employee.find({ department_id: deptId }).select('_id').lean();
+      filter.employee_id = { $in: deptEmployees.map(e => e._id) };
+    } else if (role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const records = await Attendance.find(filter)
       .sort({ check_in_time: -1 })
       .limit(10)
       .populate({

@@ -73,10 +73,14 @@
     <header
       class="bg-surface border-b border-outline-variant h-16 flex items-center justify-between px-6 flex-shrink-0 z-0">
       <div class="flex items-center gap-6 flex-1">
-        <div class="relative hidden md:block"><i
-            class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary text-sm"></i><input
-            class="pl-9 pr-4 py-1.5 bg-surface-container-low border-none rounded-md text-sm w-64 focus:ring-2 focus:ring-primary focus:bg-surface"
-            placeholder="Search..." type="text"></div>
+        <div class="relative hidden md:block">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary text-sm"></i>
+          <input
+            id="dashboard-search-input"
+            class="pl-9 pr-4 py-1.5 bg-surface-container-low border border-outline-variant rounded-md text-sm w-72 focus:ring-2 focus:ring-primary focus:bg-surface outline-none transition-all"
+            placeholder="Search employees, departments..." type="text">
+          <div id="dashboard-search-results" class="hidden absolute left-0 top-full mt-2 w-80 bg-surface border border-outline-variant rounded-xl shadow-xl p-2 z-50 max-h-80 overflow-y-auto"></div>
+        </div>
         <h2 class="font-bold text-lg">Sentinel Attendance</h2>
         <nav class="hidden sm:flex items-center gap-6"><a class="text-sm font-medium border-b-2 border-primary py-5"
             href="#">Overview</a><a class="text-sm font-medium text-secondary hover:text-primary transition-colors"
@@ -374,22 +378,159 @@
           if (lateBadge) lateBadge.innerHTML = `<i class="fa-solid fa-clock text-[10px]"></i>${s.late_arrivals} Today`;
 
           // Late Arrivals List
-          renderLateArrivalsList(s.late_arrivals_list || []);
+          rawLateArrivals = s.late_arrivals_list || [];
+          const currentSearch = searchInput ? searchInput.value.trim() : '';
+          if (currentSearch) {
+            applyDashboardFilter(currentSearch);
+          } else {
+            renderLateArrivalsList(rawLateArrivals);
+          }
         }
       } catch (err) {
         console.error('Error loading dashboard summary:', err);
       }
     }
 
+    let rawLateArrivals = [];
+    let rawDepartments = [];
+    let rawEmployeesList = [];
+    const searchInput = document.getElementById('dashboard-search-input');
+    const searchResultsDropdown = document.getElementById('dashboard-search-results');
+
+    function applyDashboardFilter(q) {
+      const term = (q || '').trim().toLowerCase();
+
+      // 1. Filter late arrivals list
+      if (!term) {
+        renderLateArrivalsList(rawLateArrivals);
+      } else {
+        const filteredLate = rawLateArrivals.filter(item => {
+          return (item.employee_name || '').toLowerCase().includes(term) ||
+                 (item.department_name || '').toLowerCase().includes(term) ||
+                 (item.check_in_time || '').toLowerCase().includes(term);
+        });
+        renderLateArrivalsList(filteredLate);
+      }
+
+      // 2. Filter department overview grid
+      if (!term) {
+        renderDepartmentOverview(rawDepartments);
+      } else {
+        const filteredDepts = rawDepartments.filter(dept => {
+          return (dept.department_name || '').toLowerCase().includes(term);
+        });
+        renderDepartmentOverview(filteredDepts);
+      }
+
+      // 3. Autocomplete dropdown
+      if (!term || term.length < 2) {
+        if (searchResultsDropdown) searchResultsDropdown.classList.add('hidden');
+        return;
+      }
+
+      renderSearchDropdown(term);
+    }
+
+    async function renderSearchDropdown(term) {
+      if (!searchResultsDropdown) return;
+
+      if (rawEmployeesList.length === 0) {
+        try {
+          const res = await fetch('/api/employees', { headers: authHeaders() });
+          if (res.ok) rawEmployeesList = await res.json();
+        } catch (e) {}
+      }
+
+      const matchedEmps = rawEmployeesList.filter(e =>
+        (e.name || '').toLowerCase().includes(term) ||
+        (e.department_name || '').toLowerCase().includes(term) ||
+        (e.designation || '').toLowerCase().includes(term)
+      ).slice(0, 4);
+
+      const matchedDepts = rawDepartments.filter(d =>
+        (d.department_name || '').toLowerCase().includes(term)
+      ).slice(0, 3);
+
+      if (matchedEmps.length === 0 && matchedDepts.length === 0) {
+        searchResultsDropdown.innerHTML = `
+          <div class="p-3 text-xs text-secondary text-center">
+            No matches found for "<span class="font-semibold text-primary">${term}</span>"
+          </div>`;
+        searchResultsDropdown.classList.remove('hidden');
+        return;
+      }
+
+      let html = '';
+
+      if (matchedEmps.length > 0) {
+        html += `<div class="px-2 py-1 text-[11px] font-bold text-secondary uppercase tracking-wider">Employees</div>`;
+        matchedEmps.forEach(emp => {
+          html += `
+            <a href="/Templates/Employee_Management_Page.html?search=${encodeURIComponent(emp.name)}"
+               class="flex items-center justify-between p-2 hover:bg-surface-container-low rounded-lg transition-colors group">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs flex-shrink-0">
+                  ${(emp.name || 'E').slice(0, 1).toUpperCase()}
+                </div>
+                <div class="min-w-0">
+                  <p class="text-xs font-semibold text-on-surface truncate group-hover:text-primary">${emp.name}</p>
+                  <p class="text-[10px] text-secondary truncate">${emp.department_name || ''} · ${emp.designation || ''}</p>
+                </div>
+              </div>
+              <i class="fa-solid fa-arrow-right text-[10px] text-secondary group-hover:text-primary ml-2 flex-shrink-0"></i>
+            </a>`;
+        });
+      }
+
+      if (matchedDepts.length > 0) {
+        if (html) html += `<div class="border-t border-outline-variant my-1"></div>`;
+        html += `<div class="px-2 py-1 text-[11px] font-bold text-secondary uppercase tracking-wider">Departments</div>`;
+        matchedDepts.forEach(dept => {
+          html += `
+            <a href="/Templates/Daily_Attendnace_Tracking_Page.html"
+               class="flex items-center justify-between p-2 hover:bg-surface-container-low rounded-lg transition-colors group">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-building text-xs text-primary flex-shrink-0"></i>
+                <p class="text-xs font-semibold text-on-surface group-hover:text-primary">${dept.department_name}</p>
+              </div>
+              <span class="text-[10px] bg-secondary/10 text-secondary px-1.5 py-0.5 rounded font-medium">${dept.attendance_rate || 0}%</span>
+            </a>`;
+        });
+      }
+
+      searchResultsDropdown.innerHTML = html;
+      searchResultsDropdown.classList.remove('hidden');
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => applyDashboardFilter(e.target.value));
+      searchInput.addEventListener('focus', () => {
+        if (searchInput.value.trim().length >= 2) renderSearchDropdown(searchInput.value.trim().toLowerCase());
+      });
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          searchResultsDropdown?.classList.add('hidden');
+        }
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (searchResultsDropdown && !searchResultsDropdown.contains(e.target) && e.target !== searchInput) {
+        searchResultsDropdown.classList.add('hidden');
+      }
+    });
+
     function renderLateArrivalsList(list) {
       const listEl = document.getElementById('late-arrivals-list');
       if (!listEl) return;
 
       if (!list || list.length === 0) {
+        const q = searchInput?.value.trim();
+        const emptyMsg = q ? `No late arrivals matching "${q}"` : 'No late arrivals recorded today';
         listEl.innerHTML = `
           <li class="p-6 text-center text-sm text-secondary">
             <i class="fa-regular fa-circle-check text-green-500 text-lg mb-1 block"></i>
-            No late arrivals recorded today
+            ${emptyMsg}
           </li>
         `;
         return;
@@ -453,7 +594,13 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
         if (result.success && result.data) {
-          renderDepartmentOverview(result.data);
+          rawDepartments = result.data;
+          const currentSearch = searchInput ? searchInput.value.trim() : '';
+          if (currentSearch) {
+            applyDashboardFilter(currentSearch);
+          } else {
+            renderDepartmentOverview(rawDepartments);
+          }
         }
       } catch (err) {
         console.error('Error loading department comparison:', err);
@@ -465,7 +612,9 @@
       if (!grid) return;
 
       if (!departments || departments.length === 0) {
-        grid.innerHTML = '<div class="text-sm text-secondary col-span-full">No department data found.</div>';
+        const q = searchInput?.value.trim();
+        const emptyMsg = q ? `No departments matching "${q}"` : 'No department data found.';
+        grid.innerHTML = `<div class="text-sm text-secondary col-span-full">${emptyMsg}</div>`;
         return;
       }
 

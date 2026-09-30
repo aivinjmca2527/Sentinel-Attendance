@@ -27,6 +27,14 @@ function isTestOverrideAuthorized(reqOrCtx) {
   return Boolean(providedSecret && providedSecret === configuredSecret);
 }
 
+let dynamicGeofenceMode = null;
+
+function setGeofenceMode(mode) {
+  if (['off', 'log', 'enforce'].includes(mode)) {
+    dynamicGeofenceMode = mode;
+  }
+}
+
 function getGeofenceMode(reqOrCtx) {
   // Allow request header override in test environment when authorized by secret
   if (isTestOverrideAuthorized(reqOrCtx)) {
@@ -37,6 +45,10 @@ function getGeofenceMode(reqOrCtx) {
         return override;
       }
     }
+  }
+
+  if (dynamicGeofenceMode) {
+    return dynamicGeofenceMode;
   }
 
   const mode = (process.env.GEOFENCE_MODE || 'log').toLowerCase().trim();
@@ -61,6 +73,7 @@ function getMaxAccuracy(reqOrCtx) {
 
 module.exports = {
   getGeofenceMode,
+  setGeofenceMode,
   getMaxAccuracy,
   get GEOFENCE_MODE() {
     return getGeofenceMode();
@@ -69,3 +82,4 @@ module.exports = {
     return getMaxAccuracy();
   }
 };
+

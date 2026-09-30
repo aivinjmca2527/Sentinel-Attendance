@@ -119,7 +119,7 @@
 <span class="font-headline-md text-headline-md font-bold text-on-surface">Sentinel Attendance</span>
 <div class="relative hidden lg:block">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
-<input class="pl-10 pr-4 py-1.5 bg-surface-container-low border border-outline-variant rounded-full text-body-md focus:ring-2 focus:ring-secondary outline-none w-64" placeholder="Search logs..." type="text">
+<input id="security-search-input" class="pl-10 pr-4 py-1.5 bg-surface-container-low border border-outline-variant rounded-full text-body-md focus:ring-2 focus:ring-secondary outline-none w-64" placeholder="Search alerts or logs..." type="text">
 </div>
 </div>
 <div class="flex items-center gap-md">
@@ -419,6 +419,35 @@
                 });
             }
 
+            let allSecurityAlerts = [];
+            const securitySearchInput = document.getElementById('security-search-input');
+
+            function applySecurityFilter(query) {
+                const q = (query || '').toLowerCase().trim();
+                if (!q) {
+                    renderAlerts(allSecurityAlerts);
+                    return;
+                }
+                const filtered = allSecurityAlerts.filter(a => {
+                    const timestamp = new Date(a.created_at).toLocaleString();
+                    const empName = a.employee_name || '';
+                    const deptName = a.department_name || '';
+                    const alertType = (a.alert_type || '').replace(/_/g, ' ');
+                    const sev = a.severity || '';
+                    const st = a.status || '';
+                    const msg = a.message || '';
+                    const haystack = `${empName} ${deptName} ${alertType} ${sev} ${st} ${msg} ${timestamp}`.toLowerCase();
+                    return haystack.includes(q);
+                });
+                renderAlerts(filtered);
+            }
+
+            if (securitySearchInput) {
+                securitySearchInput.addEventListener('input', (e) => {
+                    applySecurityFilter(e.target.value);
+                });
+            }
+
             // ── Fetch security alerts ──
             async function fetchAlerts() {
                 const startStr = toISODate(selectedStart);
@@ -429,8 +458,13 @@
                     });
                     if (handle401Security(res)) return;
                     if (!res.ok) throw new Error('HTTP ' + res.status);
-                    const alerts = await res.json();
-                    renderAlerts(alerts);
+                    allSecurityAlerts = await res.json();
+                    const currentQ = (securitySearchInput?.value || '').trim();
+                    if (currentQ) {
+                        applySecurityFilter(currentQ);
+                    } else {
+                        renderAlerts(allSecurityAlerts);
+                    }
                 } catch (err) {
                     console.error('[Security] Fetch alerts error:', err);
                 }
@@ -475,12 +509,18 @@
                 const eventCount = document.getElementById('alert-event-count');
                 if (!tbl) return;
 
+                const q = (securitySearchInput?.value || '').trim();
                 if (eventCount) {
-                    eventCount.textContent = `Showing ${alerts.length} security alert${alerts.length !== 1 ? 's' : ''}`;
+                    if (q) {
+                        eventCount.textContent = `Showing ${alerts.length} of ${allSecurityAlerts.length} security alerts (filtered)`;
+                    } else {
+                        eventCount.textContent = `Showing ${alerts.length} security alert${alerts.length !== 1 ? 's' : ''}`;
+                    }
                 }
 
                 if (!alerts || alerts.length === 0) {
-                    tbl.innerHTML = '<tr><td colspan="5" class="px-lg py-md text-center text-on-surface-variant">No security alerts for this date range.</td></tr>';
+                    const emptyMsg = q ? `No security alerts matching "${q}"` : 'No security alerts for this date range.';
+                    tbl.innerHTML = `<tr><td colspan="5" class="px-lg py-md text-center text-on-surface-variant font-medium">${emptyMsg}</td></tr>`;
                     renderInsights([]);
                     bindRowClicks();
                     return;
@@ -621,6 +661,11 @@
             }
 
             // ── Initial load ──
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialSearch = urlParams.get('search');
+            if (initialSearch && securitySearchInput) {
+                securitySearchInput.value = initialSearch;
+            }
             fetchReport();
         });
     </script>

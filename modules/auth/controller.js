@@ -10,20 +10,26 @@ const QRCode = require("qrcode");
 
 const User = require("../../shared/models/User");
 const Employee = require("../../shared/models/Employee");
-const { JWT_SECRET } = require("../../shared/middleware/auth.middleware");
+const { JWT_SECRET, getManagerDepartment } = require("../../shared/middleware/auth.middleware");
 
 const TOTP_REQUIRED_ROLES = ["manager", "admin"];
 
 function makeJWT(user, isTemp = false) {
+  const payload = {
+    id:            user._id,
+    name:          user.name,
+    email:         user.email,
+    role:          user.role ? String(user.role).toLowerCase() : "",
+    employee_id:   user.employee_id,
+    temp:          isTemp,
+  };
+
+  if (user.department_id) {
+    payload.department_id = user.department_id;
+  }
+
   return jwt.sign(
-    {
-      id:            user._id,
-      name:          user.name,
-      email:         user.email,
-      role:          user.role,
-      employee_id:   user.employee_id,
-      temp:          isTemp,
-    },
+    payload,
     JWT_SECRET,
     { expiresIn: isTemp ? "10m" : "8h" }
   );
@@ -61,6 +67,11 @@ exports.login = async (req, res) => {
     const employee = await Employee.findOne({ user_id: user._id });
     if (employee) {
         user.employee_id = employee._id;
+    }
+
+    const deptId = await getManagerDepartment(user._id, user.employee_id);
+    if (deptId) {
+      user.department_id = deptId;
     }
 
     const token = makeJWT(user, false);
@@ -128,6 +139,11 @@ exports.totpVerify = async (req, res) => {
     const employee = await Employee.findOne({ user_id: user._id });
     if (employee) {
       user.employee_id = employee._id;
+    }
+
+    const deptId = await getManagerDepartment(user._id, user.employee_id);
+    if (deptId) {
+      user.department_id = deptId;
     }
 
     const token = makeJWT(user, false);

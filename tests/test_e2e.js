@@ -2,6 +2,7 @@
  * Sentinel Attendance — Comprehensive End-to-End Verification
  * Tests all modules: Auth, Employees, Attendance/QR, Leave, Dashboard, Reports
  */
+require('dotenv').config();
 const http = require('http');
 const { authenticator } = require('otplib');
 const { spawn } = require('child_process');
@@ -490,6 +491,269 @@ async function run() {
   } else {
     log(false, 'Geofence toggle tests', 'missing geoToken or QR session');
   }
+
+  // ═══════════════════════════════════════════
+  console.log('\n─── Stage 2: Manager Department Scoping & Permission Guardrails ───');
+
+  // Ensure two distinct departments exist
+  let deptsListRes = await req('GET', '/api/departments', null, adminToken);
+  let deptAObj = deptsListRes.b && deptsListRes.b[0];
+  let deptBObj = deptsListRes.b && deptsListRes.b[1];
+  if (!deptBObj) {
+    const newDeptRes = await req('POST', '/api/departments', { name: `Dept_B_${Date.now()}` }, adminToken);
+    deptBObj = newDeptRes.b;
+  }
+  const deptAId = deptAObj._id || deptAObj.id;
+  const deptBId = deptBObj._id || deptBObj.id;
+
+  // 1. Create and log in Manager A (assigned to Dept A)
+  const mgrAEmail = `manager.deptA.${Date.now()}@sentinel.com`;
+  const mgrARes = await req('POST', '/api/employees', {
+    name: 'Dept A Manager',
+    email: mgrAEmail,
+    role: 'manager',
+    department_id: deptAId,
+    designation: 'Engineering Manager',
+    phone: '+1-555-0101',
+    join_date: '2026-01-01'
+  }, adminToken);
+  const mgrALogin = await req('POST', '/api/auth/login', { email: mgrAEmail, password: 'Welcome@123' });
+  const mgrAToken = mgrALogin.b && mgrALogin.b.token;
+
+  // 2. Create and log in Manager with No Department
+  const mgrNoDeptEmail = `manager.nodept.${Date.now()}@sentinel.com`;
+  const mgrNoDeptRes = await req('POST', '/api/employees', {
+    name: 'No Dept Manager',
+    email: mgrNoDeptEmail,
+    role: 'manager',
+    department_id: null,
+    designation: 'Floating Manager',
+    phone: '+1-555-0102',
+    join_date: '2026-01-01'
+  }, adminToken);
+  const mgrNoDeptLogin = await req('POST', '/api/auth/login', { email: mgrNoDeptEmail, password: 'Welcome@123' });
+  const mgrNoDeptToken = mgrNoDeptLogin.b && mgrNoDeptLogin.b.token;
+
+  // 3. Create sample employees in Dept A and Dept B
+  const empAEmail = `emp.deptA.${Date.now()}@sentinel.com`;
+  const empARes = await req('POST', '/api/employees', {
+    name: 'Dept A Employee',
+    email: empAEmail,
+    department_id: deptAId,
+    designation: 'Staff Engineer',
+    phone: '+1-555-0103',
+    join_date: '2026-01-01'
+  }, adminToken);
+  const empAId = empARes.b && (empARes.b._id || empARes.b.id);
+
+  const empBEmail = `emp.deptB.${Date.now()}@sentinel.com`;
+  const empBRes = await req('POST', '/api/employees', {
+    name: 'Dept B Employee',
+    email: empBEmail,
+    department_id: deptBId,
+    designation: 'Marketing Lead',
+    phone: '+1-555-0104',
+    join_date: '2026-01-01'
+  }, adminToken);
+  const empBId = empBRes.b && (empBRes.b._id || empBRes.b.id);
+
+  // Test: Manager A only sees Dept A employees
+  const mgrAEmps = await req('GET', '/api/employees', null, mgrAToken);
+  const onlyDeptA = Array.isArray(mgrAEmps.b) && mgrAEmps.b.length > 0 &&
+    mgrAEmps.b.every(e => String(e.department_id) === String(deptAId));
+  log(onlyDeptA, 'Manager only sees own department employees', `count=${mgrAEmps.b ? mgrAEmps.b.length : 0}`);
+
+  // Test: Manager cannot override department via ?dept=
+  const mgrAOverride = await req('GET', `/api/employees?dept=${deptBId}`, null, mgrAToken);
+  const overrideBlocked = Array.isArray(mgrAOverride.b) &&
+    mgrAOverride.b.every(e => String(e.department_id) === String(deptAId));
+  log(overrideBlocked, 'Manager cannot override department scope via ?dept= query', `count=${mgrAOverride.b ? mgrAOverride.b.length : 0}`);
+
+  // Test: Manager with no department gets empty array [] for employees
+  const noDeptEmps = await req('GET', '/api/employees', null, mgrNoDeptToken);
+  log(noDeptEmps.s === 200 && Array.isArray(noDeptEmps.b) && noDeptEmps.b.length === 0, 'Manager with no department gets empty list for employees', `status=${noDeptEmps.s}`);
+
+  // Test: Manager can read own department employee (200)
+  const readOwnEmp = await req('GET', `/api/employees/${empAId}`, null, mgrAToken);
+  log(readOwnEmp.s === 200 && readOwnEmp.b.id === empAId, 'Manager can view employee in own department', `status=${readOwnEmp.s}`);
+
+  // Test: Manager cannot read different department employee (403)
+  const readOtherEmp = await req('GET', `/api/employees/${empBId}`, null, mgrAToken);
+  log(readOtherEmp.s === 403, 'Manager cannot view employee in another department (403)', `status=${readOtherEmp.s}`);
+
+  // Test: Manager creates employee forces own department_id
+  const subEmail = `sub.deptA.${Date.now()}@sentinel.com`;
+  const mgrCreateEmp = await req('POST', '/api/employees', {
+    name: 'Dept A Subordinate',
+    email: subEmail,
+    department_id: deptBId, // attempt to assign to Dept B
+    designation: 'Junior Engineer'
+  }, mgrAToken);
+  const subCreatedOwnDept = mgrCreateEmp.s === 201 && String(mgrCreateEmp.b.department_id) === String(deptAId);
+  log(subCreatedOwnDept, 'Manager create employee forces manager department (overriding body)', `status=${mgrCreateEmp.s}, dept=${mgrCreateEmp.b ? mgrCreateEmp.b.department_id : ''}`);
+  const subId = mgrCreateEmp.b && (mgrCreateEmp.b._id || mgrCreateEmp.b.id);
+
+  // Test: Manager with no department cannot create employee (400)
+  const noDeptCreate = await req('POST', '/api/employees', {
+    name: 'Orphan Subordinate',
+    email: `orphan.${Date.now()}@sentinel.com`,
+    designation: 'Intern'
+  }, mgrNoDeptToken);
+  log(noDeptCreate.s === 400, 'Manager with no department cannot create employee (400)', `status=${noDeptCreate.s}`);
+
+  // Test: Manager cannot update employee in another department (403)
+  const updateOtherDeptEmp = await req('PUT', `/api/employees/${empBId}`, { designation: 'Promoted Lead' }, mgrAToken);
+  log(updateOtherDeptEmp.s === 403, 'Manager cannot update employee in another department (403)', `status=${updateOtherDeptEmp.s}`);
+
+  // Test: Manager cannot transfer own employee to another department (400)
+  const transferOwnEmp = await req('PUT', `/api/employees/${empAId}`, { department_id: deptBId }, mgrAToken);
+  log(transferOwnEmp.s === 400, 'Manager cannot reassign employee to another department (400)', `status=${transferOwnEmp.s}`);
+
+  // Test: Manager can update own employee (200)
+  const updateOwnEmp = await req('PUT', `/api/employees/${empAId}`, { designation: 'Principal Engineer' }, mgrAToken);
+  log(updateOwnEmp.s === 200 && updateOwnEmp.b.designation === 'Principal Engineer', 'Manager can update own department employee (200)', `status=${updateOwnEmp.s}`);
+
+  // Test: Manager cannot delete employee in another department (403)
+  const deleteOtherDeptEmp = await req('DELETE', `/api/employees/${empBId}`, null, mgrAToken);
+  log(deleteOtherDeptEmp.s === 403, 'Manager cannot delete employee in another department (403)', `status=${deleteOtherDeptEmp.s}`);
+
+  // Test: Manager can delete subordinate in own department (200)
+  const deleteOwnSub = subId ? await req('DELETE', `/api/employees/${subId}`, null, mgrAToken) : { s: 0 };
+  log(deleteOwnSub.s === 200, 'Manager can delete employee in own department (200)', `status=${deleteOwnSub.s}`);
+
+  // Test: Manager attendance records scoped to own department
+  const mgrAtt = await req('GET', '/api/attendance', null, mgrAToken);
+  log(mgrAtt.s === 200 && Array.isArray(mgrAtt.b), 'Manager views attendance records', `status=${mgrAtt.s}, count=${mgrAtt.b ? mgrAtt.b.length : 0}`);
+
+  // Test: Manager querying specific employee from another department returns []
+  const wrongEmpAtt = await req('GET', `/api/attendance?employee_id=${empBId}`, null, mgrAToken);
+  log(wrongEmpAtt.s === 200 && Array.isArray(wrongEmpAtt.b) && wrongEmpAtt.b.length === 0, 'Manager querying attendance for employee in another department returns []', `status=${wrongEmpAtt.s}`);
+
+  // Test: Manager with no department queries attendance returns []
+  const noDeptAtt = await req('GET', '/api/attendance', null, mgrNoDeptToken);
+  log(noDeptAtt.s === 200 && Array.isArray(noDeptAtt.b) && noDeptAtt.b.length === 0, 'Manager with no department queries attendance returns []', `status=${noDeptAtt.s}`);
+
+  // Test: Manager recent scans scoped to own department
+  const mgrScans = await req('GET', '/api/qr/recent-scans', null, mgrAToken);
+  log(mgrScans.s === 200 && Array.isArray(mgrScans.b), 'Manager queries recent scans', `status=${mgrScans.s}, count=${mgrScans.b ? mgrScans.b.length : 0}`);
+
+  // Test: Manager with no department recent scans returns []
+  const noDeptScans = await req('GET', '/api/qr/recent-scans', null, mgrNoDeptToken);
+  log(noDeptScans.s === 200 && Array.isArray(noDeptScans.b) && noDeptScans.b.length === 0, 'Manager with no department queries recent scans returns []', `status=${noDeptScans.s}`);
+
+  // Test: Admin behavior remains fully unrestricted
+  const adminEmpB = await req('GET', `/api/employees/${empBId}`, null, adminToken);
+  const adminReadOk = adminEmpB.s === 200;
+  const adminFilterB = await req('GET', `/api/employees?dept=${deptBId}`, null, adminToken);
+  const adminFilterOk = adminFilterB.s === 200 && Array.isArray(adminFilterB.b);
+  const adminAtt = await req('GET', '/api/attendance', null, adminToken);
+  const adminAttOk = adminAtt.s === 200 && Array.isArray(adminAtt.b);
+  log(adminReadOk && adminFilterOk && adminAttOk, 'Admin behavior is fully unrestricted across departments', `read=${adminReadOk}, filter=${adminFilterOk}, att=${adminAttOk}`);
+
+  // ═══════════════════════════════════════════
+  console.log('\n─── Stage 3: Leave Management Department Scoping ───');
+
+  const jwt = require('jsonwebtoken');
+  const { JWT_SECRET } = require('../shared/middleware/auth.middleware');
+
+  // 1. Employee A (Dept A) and Employee B (Dept B) log in to obtain tokens
+  const empALogin = await req('POST', '/api/auth/login', { email: empAEmail, password: 'Welcome@123' });
+  const empAToken = empALogin.b && empALogin.b.token;
+
+  const empBLogin = await req('POST', '/api/auth/login', { email: empBEmail, password: 'Welcome@123' });
+  const empBToken = empBLogin.b && empBLogin.b.token;
+
+  // 2. Submit sample leave requests for Emp A (Dept A) and Emp B (Dept B)
+  const leaveReqA = await req('POST', '/api/leave', {
+    leave_type: 'sick',
+    start_date: '2026-11-10',
+    end_date: '2026-11-11',
+    reason: 'Dept A Doctor appointment'
+  }, empAToken);
+  const leaveAId = leaveReqA.b && leaveReqA.b._id;
+  log(leaveReqA.s === 201 && !!leaveAId, 'Emp A submits leave request in Dept A', `status=${leaveReqA.s}, id=${leaveAId}`);
+
+  const leaveReqB = await req('POST', '/api/leave', {
+    leave_type: 'casual',
+    start_date: '2026-11-15',
+    end_date: '2026-11-16',
+    reason: 'Dept B Personal errand'
+  }, empBToken);
+  const leaveBId = leaveReqB.b && leaveReqB.b._id;
+  log(leaveReqB.s === 201 && !!leaveBId, 'Emp B submits leave request in Dept B', `status=${leaveReqB.s}, id=${leaveBId}`);
+
+  // 3. Manager A (GET /api/leave): scoped to Dept A only
+  const mgrALeaves = await req('GET', '/api/leave', null, mgrAToken);
+  const mgrAHasA = Array.isArray(mgrALeaves.b) && mgrALeaves.b.some(r => String(r._id) === String(leaveAId));
+  const mgrANoB = Array.isArray(mgrALeaves.b) && !mgrALeaves.b.some(r => String(r._id) === String(leaveBId));
+  const mgrAOnlyDeptA = Array.isArray(mgrALeaves.b) && mgrALeaves.b.every(r => {
+    const dId = r.employee_id?.department_id?._id || r.employee_id?.department_id;
+    return !dId || String(dId) === String(deptAId);
+  });
+  log(mgrALeaves.s === 200 && mgrAHasA && mgrANoB && mgrAOnlyDeptA, 'Manager A only sees Dept A leave requests (GET /api/leave)', `hasA=${mgrAHasA}, hasB=${!mgrANoB}, count=${mgrALeaves.b ? mgrALeaves.b.length : 0}`);
+
+  // 4. Case-sensitivity test: Create token with role 'Manager' (capital M)
+  const mgrDecoded = jwt.decode(mgrAToken);
+  delete mgrDecoded.iat;
+  delete mgrDecoded.exp;
+  const mgrCapitalToken = jwt.sign({
+    ...mgrDecoded,
+    role: 'Manager'
+  }, JWT_SECRET, { expiresIn: '1h' });
+
+  const capitalLeaves = await req('GET', '/api/leave', null, mgrCapitalToken);
+  const capHasA = Array.isArray(capitalLeaves.b) && capitalLeaves.b.some(r => String(r._id) === String(leaveAId));
+  const capNoB = Array.isArray(capitalLeaves.b) && !capitalLeaves.b.some(r => String(r._id) === String(leaveBId));
+  log(capitalLeaves.s === 200 && capHasA && capNoB, 'Case-sensitivity fix: token with role "Manager" scopes to department instead of leaking all company leaves', `status=${capitalLeaves.s}, hasA=${capHasA}, leakedB=${!capNoB}`);
+
+  // 5. Manager A listing with filters (GET /api/leave/requests) and ?department_id= override attempt
+  const mgrAdminReqs = await req('GET', '/api/leave/requests', null, mgrAToken);
+  const mgrReqsHasA = Array.isArray(mgrAdminReqs.b) && mgrAdminReqs.b.some(r => String(r._id) === String(leaveAId));
+  const mgrReqsNoB = Array.isArray(mgrAdminReqs.b) && !mgrAdminReqs.b.some(r => String(r._id) === String(leaveBId));
+  log(mgrAdminReqs.s === 200 && mgrReqsHasA && mgrReqsNoB, 'Manager A views requests listing scoped to Dept A (GET /api/leave/requests)', `status=${mgrAdminReqs.s}, hasA=${mgrReqsHasA}, hasB=${!mgrReqsNoB}`);
+
+  const mgrOverrideDept = await req('GET', `/api/leave/requests?department_id=${deptBId}`, null, mgrAToken);
+  const overrideNoB = Array.isArray(mgrOverrideDept.b) && !mgrOverrideDept.b.some(r => String(r._id) === String(leaveBId));
+  const overrideStillA = Array.isArray(mgrOverrideDept.b) && mgrOverrideDept.b.some(r => String(r._id) === String(leaveAId));
+  log(overrideNoB && overrideStillA, 'Manager cannot override leave scope via ?department_id= (ignored & locked to own department)', `status=${mgrOverrideDept.s}, leakedB=${!overrideNoB}`);
+
+  // 6. Department-scoped leave stats (GET /api/leave/stats)
+  const mgrStats = await req('GET', '/api/leave/stats', null, mgrAToken);
+  const adminStats = await req('GET', '/api/leave/stats', null, adminToken);
+  const statsDeptScoped = mgrStats.s === 200 && mgrStats.b.total > 0 && adminStats.s === 200 && adminStats.b.total >= mgrStats.b.total;
+  log(statsDeptScoped, 'Manager leave stats computed only from manager department', `mgrTotal=${mgrStats.b ? mgrStats.b.total : 0}, adminTotal=${adminStats.b ? adminStats.b.total : 0}`);
+
+  // 7. Manager views single request: own department (200) vs other department (403)
+  const viewOwnLeave = await req('GET', `/api/leave/${leaveAId}`, null, mgrAToken);
+  log(viewOwnLeave.s === 200 && String(viewOwnLeave.b._id) === String(leaveAId), 'Manager can view leave request in own department', `status=${viewOwnLeave.s}`);
+
+  const viewOtherLeave = await req('GET', `/api/leave/${leaveBId}`, null, mgrAToken);
+  log(viewOtherLeave.s === 403, 'Manager cannot view leave request from another department (403)', `status=${viewOtherLeave.s}`);
+
+  // 8. Manager attempts to approve / deny request in another department (403)
+  const approveOtherDept = await req('PUT', `/api/leave/${leaveBId}/approve`, null, mgrAToken);
+  log(approveOtherDept.s === 403, 'Manager cannot approve leave request from another department (403)', `status=${approveOtherDept.s}`);
+
+  const denyOtherDept = await req('PUT', `/api/leave/${leaveBId}/deny`, { reason: 'Unauthorized' }, mgrAToken);
+  log(denyOtherDept.s === 403, 'Manager cannot deny leave request from another department (403)', `status=${denyOtherDept.s}`);
+
+  // 9. Manager can deny request in own department (200)
+  const denyOwnDept = await req('PUT', `/api/leave/${leaveAId}/deny`, { reason: 'Team short-handed' }, mgrAToken);
+  log(denyOwnDept.s === 200 && denyOwnDept.b.leaveRequest?.status === 'denied', 'Manager can deny leave request in own department (200)', `status=${denyOwnDept.s}`);
+
+  // 10. Manager with no department gets empty results and zeroes
+  const noDeptLeaves = await req('GET', '/api/leave', null, mgrNoDeptToken);
+  log(noDeptLeaves.s === 200 && Array.isArray(noDeptLeaves.b) && noDeptLeaves.b.length === 0, 'Manager with no department gets empty list (GET /api/leave)', `status=${noDeptLeaves.s}`);
+
+  const noDeptAdminLeaves = await req('GET', '/api/leave/requests', null, mgrNoDeptToken);
+  log(noDeptAdminLeaves.s === 200 && Array.isArray(noDeptAdminLeaves.b) && noDeptAdminLeaves.b.length === 0, 'Manager with no department gets empty list (GET /api/leave/requests)', `status=${noDeptAdminLeaves.s}`);
+
+  const noDeptStats = await req('GET', '/api/leave/stats', null, mgrNoDeptToken);
+  log(noDeptStats.s === 200 && noDeptStats.b.total === 0, 'Manager with no department gets 0 stats', `total=${noDeptStats.b ? noDeptStats.b.total : 'err'}`);
+
+  // 11. Admin can approve Dept B request (unrestricted across departments)
+  const adminApproveB = await req('PUT', `/api/leave/${leaveBId}/approve`, null, adminToken);
+  log(adminApproveB.s === 200 && adminApproveB.b.leaveRequest?.status === 'approved', 'Admin can approve leave request across any department (200)', `status=${adminApproveB.s}`);
 
   // ═══════════════════════════════════════════
   console.log('\n─── Edge Cases ───');

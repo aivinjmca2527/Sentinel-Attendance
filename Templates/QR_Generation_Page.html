@@ -100,6 +100,9 @@
         }
     }catch(_e){}</script><meta charset="utf-8">
 <link rel="stylesheet" href="/Templates/shared/styles.css">
+<!-- Leaflet.js for Interactive Geofence Map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head><body class="bg-background text-on-background min-h-screen flex relative">
 <!-- Toast Container -->
 <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
@@ -161,9 +164,20 @@
   </div>
 </div>
 
-<header class="mb-xl border-b border-border pb-lg">
-<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">QR Security &amp; Kiosk Management</h2>
-<p class="font-body-lg text-body-lg text-on-surface-variant mt-sm">Configure global settings and monitor physical check-in kiosks.</p>
+<header class="mb-xl border-b border-border pb-lg flex flex-col md:flex-row md:items-center md:justify-between gap-md">
+<div>
+  <h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary">QR Security &amp; Kiosk Management</h2>
+  <p class="font-body-lg text-body-lg text-on-surface-variant mt-sm">Configure global settings, select departments, and manage physical check-in kiosks.</p>
+</div>
+<div class="flex items-center gap-sm bg-surface p-sm rounded-xl border border-border shadow-sm">
+  <div class="flex items-center gap-xs text-on-surface-variant px-xs">
+    <span class="material-symbols-outlined text-secondary text-[20px]">domain</span>
+    <span class="text-xs font-semibold uppercase tracking-wider">Department:</span>
+  </div>
+  <select id="department-select" class="bg-surface-container-low border border-border rounded-lg px-md py-sm text-body-md text-on-surface font-semibold focus:outline-none focus:ring-2 focus:ring-secondary cursor-pointer">
+    <option value="" disabled selected>Loading departments...</option>
+  </select>
+</div>
 </header>
 <!-- Bento Grid Layout -->
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-lg">
@@ -185,27 +199,19 @@
 <input id="interval-slider" class="w-full accent-secondary cursor-pointer" max="60" min="5" type="range" value="15">
 </div>
 <!-- Geolocation Enforcement -->
-<div class="flex items-center justify-between py-sm border-t border-border mt-sm">
+<div class="flex items-start justify-between py-sm border-t border-border mt-sm">
 <div>
-<h4 class="font-body-md text-body-md font-semibold text-on-surface">Geolocation Enforcement</h4>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Require users to be within 50m of kiosk.</p>
+  <h4 class="font-body-md text-body-md font-semibold text-on-surface">Geolocation Enforcement</h4>
+  <p id="geofence-status-subtext" class="font-body-sm text-body-sm text-on-surface-variant">Require users to be within department perimeter.</p>
+  <button id="btn-open-geofence-modal" type="button" class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary/10 hover:bg-secondary/20 text-secondary rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-secondary/20 shadow-sm">
+    <span class="material-symbols-outlined text-[16px]">map</span>
+    <span>Edit Department Geofence</span>
+  </button>
 </div>
-<label class="relative inline-flex items-center cursor-pointer">
+<label class="relative inline-flex items-center cursor-pointer mt-1">
 <input id="toggle-geofence" checked="" class="sr-only peer" type="checkbox">
 <div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
 </label>
-</div>
-<!-- Cryptographic Signing -->
-<div class="flex items-center justify-between py-sm border-t border-border">
-<div>
-<h4 class="font-body-md text-body-md font-semibold text-on-surface">Cryptographic Signing</h4>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Sign QR data to prevent cloning.</p>
-</div>
-<label class="relative inline-flex items-center cursor-pointer">
-<input id="toggle-crypto" checked="" class="sr-only peer" type="checkbox">
-<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
-</label>
-</div>
 </div>
 </section>
 <!-- Section 3: Kiosk Actions -->
@@ -229,22 +235,33 @@
 <!-- Registered Kiosks Overview Card -->
 <section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
 <div class="flex justify-between items-center mb-md">
-  <h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">Active Kiosks</h3>
+  <div>
+    <h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">Active Kiosks</h3>
+    <p class="text-[11px] text-on-surface-variant">Click kiosk to view QR, launch display, or copy URL</p>
+  </div>
   <span id="kiosk-count-badge" class="bg-secondary/10 text-secondary text-xs font-semibold px-2 py-0.5 rounded-full">2 Active</span>
 </div>
-<div id="kiosks-list-container" class="flex flex-col gap-xs max-h-48 overflow-y-auto custom-scrollbar">
+<div id="kiosks-list-container" class="flex flex-col gap-sm max-h-64 overflow-y-auto custom-scrollbar">
   <!-- Dynamic kiosks will render here -->
 </div>
 </section>
 <!-- Preview Card -->
 <section class="bg-surface rounded-xl border border-border p-lg shadow-[0_4px_12px_rgba(0,0,0,0.02)] flex flex-col items-center">
-<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mb-md self-start">Active QR Template</h3>
+<div class="w-full flex items-center justify-between mb-md">
+  <h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">Active QR Template</h3>
+  <span id="active-dept-pill" class="text-xs bg-secondary/10 text-secondary font-semibold px-2 py-0.5 rounded-full">Department</span>
+</div>
 <div id="qr-display-area" class="bg-surface-container-low p-md rounded-xl border border-border mb-md w-48 h-48 flex items-center justify-center relative overflow-hidden">
 <div id="qr-pulse-ring" class="absolute inset-0 border-4 border-[#2563EB] opacity-20 rounded-lg scale-95 animate-pulse"></div>
 <img id="qr-code-image" class="w-32 h-32 object-cover rounded shadow-sm" alt="Live QR code for attendance check-in" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&amp;data=loading">
 </div>
 <p id="qr-expiry-text" class="font-label-sm text-label-sm text-on-surface-variant text-center">Loading QR code...</p>
 <p id="qr-countdown" class="font-label-md text-label-md text-secondary text-center mt-xs"></p>
+<div class="mt-sm flex items-center gap-xs">
+  <button id="btn-copy-kiosk-url" type="button" class="text-xs text-secondary hover:underline flex items-center gap-1 font-medium cursor-pointer">
+    <span class="material-symbols-outlined text-[16px]">content_copy</span> Copy Kiosk Display URL
+  </button>
+</div>
 </section>
 </div>
 <!-- Right Column (Active Kiosks Table) -->
@@ -366,11 +383,17 @@
         <input type="text" id="kiosk-name-input" required placeholder="e.g. Lobby Entrance Kiosk #3" class="w-full px-md py-sm bg-surface-container-low border border-border rounded-lg text-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
       </div>
       <div>
-        <label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Location / Department</label>
-        <input type="text" id="kiosk-location-input" required placeholder="e.g. Building A - Main Reception" class="w-full px-md py-sm bg-surface-container-low border border-border rounded-lg text-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+        <label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Department (Required for QR Attendance)</label>
+        <select id="modal-dept-select" required class="w-full px-md py-sm bg-surface-container-low border border-border rounded-lg text-body-md focus:outline-none focus:ring-2 focus:ring-secondary cursor-pointer">
+          <option value="" disabled selected>Loading departments...</option>
+        </select>
       </div>
       <div>
-        <label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Device IP / Serial</label>
+        <label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Physical Location</label>
+        <input type="text" id="kiosk-location-input" required placeholder="e.g. Building A - Ground Floor" class="w-full px-md py-sm bg-surface-container-low border border-border rounded-lg text-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
+      </div>
+      <div>
+        <label class="block font-label-md text-label-md text-on-surface-variant mb-xs">Device IP / Serial (Optional)</label>
         <input type="text" id="kiosk-ip-input" placeholder="e.g. 192.168.1.150" class="w-full px-md py-sm bg-surface-container-low border border-border rounded-lg text-body-md focus:outline-none focus:ring-2 focus:ring-secondary">
       </div>
       <div class="flex justify-end gap-sm pt-sm border-t border-border mt-xs">
@@ -378,6 +401,77 @@
         <button type="submit" class="px-lg py-sm bg-secondary text-on-secondary rounded-lg font-label-md hover:bg-secondary/90 transition-colors cursor-pointer">Register Kiosk</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Geofence Map Modal (Leaflet / OpenStreetMap) -->
+<div id="geofence-map-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-surface rounded-2xl border border-border shadow-2xl w-full max-w-2xl p-6 flex flex-col gap-4 max-h-[92vh] overflow-y-auto custom-scrollbar">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-border pb-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
+          <span class="material-symbols-outlined text-2xl">location_on</span>
+        </div>
+        <div>
+          <h3 class="font-headline-sm text-lg font-bold text-on-surface">Department Geofence Perimeter</h3>
+          <p id="geofence-modal-dept-title" class="font-body-sm text-xs text-on-surface-variant">Editing boundary for selected department</p>
+        </div>
+      </div>
+      <button id="close-geofence-modal-btn" type="button" class="p-2 hover:bg-surface-variant rounded-full text-on-surface-variant transition-colors cursor-pointer">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <!-- Quick Location Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-surface-container-low p-3 rounded-xl border border-border">
+      <div class="flex items-center gap-3">
+        <button id="btn-detect-my-location" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-white rounded-lg text-xs font-semibold hover:bg-secondary/90 transition-colors shadow-sm cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">my_location</span>
+          <span>Detect My Location</span>
+        </button>
+        <span class="text-xs text-on-surface-variant hidden sm:inline">• Click or drag the marker to position office</span>
+      </div>
+      <div class="flex items-center gap-2 text-xs font-mono text-on-surface-variant">
+        <span>Lat: <strong id="display-lat" class="text-on-surface">10.0159</strong></span>
+        <span>Lng: <strong id="display-lng" class="text-on-surface">76.3419</strong></span>
+      </div>
+    </div>
+
+    <!-- Interactive Leaflet Map Container -->
+    <div class="relative w-full h-80 rounded-xl border border-border overflow-hidden shadow-inner bg-surface-variant">
+      <div id="geofence-leaflet-map" class="w-full h-full z-0"></div>
+    </div>
+
+    <!-- Radius Control -->
+    <div class="bg-surface-container-low p-4 rounded-xl border border-border flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary text-sm">radar</span>
+          <label class="font-label-md text-xs font-semibold text-on-surface">Allowed Perimeter Radius</label>
+        </div>
+        <span id="geofence-radius-val" class="font-headline-sm text-sm font-bold text-secondary">200 meters</span>
+      </div>
+      <input id="geofence-radius-slider" type="range" min="25" max="1500" step="25" value="200" class="w-full accent-secondary cursor-pointer">
+      <div class="flex justify-between text-[10px] text-on-surface-variant font-mono">
+        <span>25m (Room)</span>
+        <span>200m (Office Wing)</span>
+        <span>500m (Campus)</span>
+        <span>1500m (Wide Area)</span>
+      </div>
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div class="flex items-center justify-between pt-2 border-t border-border">
+      <p class="text-[11px] text-on-surface-variant max-w-xs">Attendance scans outside this perimeter circle will be blocked with a Security Alert.</p>
+      <div class="flex items-center gap-2">
+        <button id="cancel-geofence-modal-btn" type="button" class="px-4 py-2 border border-border rounded-lg text-xs font-semibold text-on-surface-variant hover:bg-surface-variant transition-colors cursor-pointer">Cancel</button>
+        <button id="btn-save-geofence" type="button" class="inline-flex items-center gap-1.5 px-5 py-2 bg-secondary text-white rounded-lg text-xs font-semibold hover:bg-secondary/90 transition-colors shadow-sm cursor-pointer">
+          <span class="material-symbols-outlined text-[16px]">save</span>
+          <span>Save Geofence</span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -586,7 +680,6 @@
     const intervalSlider   = document.getElementById('interval-slider');
     const intervalDisplay  = document.getElementById('interval-display');
     const toggleGeofence   = document.getElementById('toggle-geofence');
-    const toggleCrypto     = document.getElementById('toggle-crypto');
     const btnAddKiosk      = document.getElementById('btn-add-kiosk');
     const btnRegenKeys     = document.getElementById('btn-regenerate-keys');
     const btnLaunchKiosk   = document.getElementById('btn-launch-kiosk-view');
@@ -602,14 +695,146 @@
     const btnNotifications = document.getElementById('btn-notifications');
     const notifDropdown    = document.getElementById('notifications-dropdown');
     const searchInput      = document.getElementById('kiosk-search-input');
+    const departmentSelect = document.getElementById('department-select');
+    const modalDeptSelect  = document.getElementById('modal-dept-select');
+    const activeDeptPill   = document.getElementById('active-dept-pill');
+    const btnCopyKioskUrl  = document.getElementById('btn-copy-kiosk-url');
+    const btnOpenGeofence  = document.getElementById('btn-open-geofence-modal');
+    const geofenceModal    = document.getElementById('geofence-map-modal');
+    const closeGeofenceBtn = document.getElementById('close-geofence-modal-btn');
+    const cancelGeofenceBtn= document.getElementById('cancel-geofence-modal-btn');
+    const btnSaveGeofence  = document.getElementById('btn-save-geofence');
+    const btnDetectLocation= document.getElementById('btn-detect-my-location');
+    const displayLat       = document.getElementById('display-lat');
+    const displayLng       = document.getElementById('display-lng');
+    const radiusSlider     = document.getElementById('geofence-radius-slider');
+    const radiusValText    = document.getElementById('geofence-radius-val');
+    const modalDeptTitle   = document.getElementById('geofence-modal-dept-title');
+    const geofenceStatusDesc = document.getElementById('geofence-status-subtext');
 
+    let leafletMap = null;
+    let mapMarker  = null;
+    let mapCircle  = null;
+    let currentMapLat = 10.0159;
+    let currentMapLng = 76.3419;
+    let currentMapRadius = 200;
+
+    const KIOSK_SECRET_KEY = 'sentinel-kiosk-display-key-test-2026';
     let currentExpiresAt = null;
     let countdownTimer   = null;
     let rawScansData     = [];
-    let currentAdminDeptId = urlParams.get('department_id');
+    let currentAdminDeptId = urlParams.get('department_id') || '';
+    let departmentsList  = [];
+
+    async function loadDepartments() {
+      try {
+        const res = await fetch(`${API_BASE}/api/departments`, { headers: authHeaders() });
+        if (res.ok) {
+          departmentsList = await res.json();
+          if (Array.isArray(departmentsList) && departmentsList.length > 0) {
+            populateDepartmentDropdowns();
+          }
+        }
+      } catch (err) {
+        console.error('[Departments] Error loading departments:', err);
+      }
+    }
+
+    function populateDepartmentDropdowns() {
+      if (departmentSelect) {
+        departmentSelect.innerHTML = departmentsList.map(d => {
+          const dId = d._id || d.id;
+          return `<option value="${dId}">${d.department_name}</option>`;
+        }).join('');
+      }
+
+      if (modalDeptSelect) {
+        modalDeptSelect.innerHTML = `<option value="" disabled selected>Select department...</option>` +
+          departmentsList.map(d => {
+            const dId = d._id || d.id;
+            return `<option value="${dId}">${d.department_name}</option>`;
+          }).join('');
+      }
+
+      // Check if currentAdminDeptId is valid, or fallback to first
+      const hasMatch = departmentsList.some(d => (d._id || d.id) === currentAdminDeptId);
+      if (!hasMatch && departmentsList.length > 0) {
+        currentAdminDeptId = departmentsList[0]._id || departmentsList[0].id;
+      }
+
+      if (departmentSelect) {
+        departmentSelect.value = currentAdminDeptId;
+      }
+      updateActiveDeptHeader();
+      renderKiosks();
+      fetchCurrentQR();
+      fetchRecentScans();
+    }
+
+    function updateActiveDeptHeader() {
+      const match = departmentsList.find(d => (d._id || d.id) === currentAdminDeptId);
+      if (activeDeptPill) {
+        activeDeptPill.textContent = match ? match.department_name : 'Department';
+      }
+      if (geofenceStatusDesc) {
+        if (toggleGeofence && !toggleGeofence.checked) {
+          geofenceStatusDesc.textContent = 'Enforcement disabled (check-ins allowed anywhere).';
+        } else if (match) {
+          const rad = match.geofence_radius_m || 200;
+          const lat = match.geofence_lat != null ? Number(match.geofence_lat).toFixed(4) : '10.0159';
+          const lng = match.geofence_lng != null ? Number(match.geofence_lng).toFixed(4) : '76.3419';
+          geofenceStatusDesc.textContent = `${rad}m radius around ${lat}, ${lng} (Enforced)`;
+        } else {
+          geofenceStatusDesc.textContent = 'Require users to be within department perimeter.';
+        }
+      }
+    }
+
+    function selectDepartment(deptId) {
+      if (!deptId) return;
+      currentAdminDeptId = deptId;
+      if (departmentSelect) departmentSelect.value = deptId;
+      updateActiveDeptHeader();
+      
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('department_id', deptId);
+      window.history.replaceState({}, '', newUrl.toString());
+
+      renderKiosks();
+      fetchCurrentQR();
+      fetchRecentScans();
+
+      const match = departmentsList.find(d => (d._id || d.id) === deptId);
+      showToast(`Active department switched to ${match ? match.department_name : 'selected'}`);
+    }
+
+    if (departmentSelect) {
+      departmentSelect.addEventListener('change', (e) => {
+        selectDepartment(e.target.value);
+      });
+    }
+
+    if (btnCopyKioskUrl) {
+      btnCopyKioskUrl.addEventListener('click', () => {
+        if (!currentAdminDeptId) {
+          showToast('No department selected.', 'warning');
+          return;
+        }
+        const kioskUrl = `${API_BASE}/Templates/QR_Generation_Page.html?department_id=${encodeURIComponent(currentAdminDeptId)}&kiosk_key=${encodeURIComponent(KIOSK_SECRET_KEY)}`;
+        navigator.clipboard.writeText(kioskUrl).then(() => {
+          showToast('Kiosk Display URL copied to clipboard!');
+        }).catch(() => {
+          prompt('Copy Kiosk Display URL:', kioskUrl);
+        });
+      });
+    }
 
     async function resolveAdminDepartment() {
       if (currentAdminDeptId) return currentAdminDeptId;
+      if (departmentsList.length > 0) {
+        currentAdminDeptId = departmentsList[0]._id || departmentsList[0].id;
+        return currentAdminDeptId;
+      }
       try {
         const res = await fetch(`${API_BASE}/api/departments`, { headers: authHeaders() });
         if (res.ok) {
@@ -622,142 +847,272 @@
       return currentAdminDeptId;
     }
 
-    // Default registered kiosks
-    let kiosks = JSON.parse(localStorage.getItem('sentinel_kiosks') || 'null') || [
-      { id: 1, name: 'Main Lobby Terminal #1', location: 'Ground Floor Lobby', ip: '192.168.1.10', status: 'Online' },
-      { id: 2, name: 'North Gate Kiosk #2', location: 'Building B - Gate 2', ip: '192.168.1.11', status: 'Online' }
-    ];
+    // Default registered kiosks with real department IDs
+    let kiosks = JSON.parse(localStorage.getItem('sentinel_kiosks_v2') || 'null');
+    if (!kiosks || !kiosks.length) {
+      kiosks = [
+        {
+          id: 1,
+          name: 'Main Lobby Terminal #1',
+          location: 'Ground Floor Lobby',
+          ip: '192.168.1.10',
+          department_id: '6aa0b5124d4f05d801fc7903',
+          department_name: 'Engineering',
+          status: 'Online'
+        },
+        {
+          id: 2,
+          name: 'North Gate Kiosk #2',
+          location: 'Building B - Gate 2',
+          ip: '192.168.1.11',
+          department_id: '6aa0b5124d4f05d801fc7900',
+          department_name: 'Human Resources',
+          status: 'Online'
+        }
+      ];
+    }
 
-    function renderKiosks() {
+    function renderKiosks(list) {
       if (!kiosksContainer) return;
-      if (kioskCountBadge) kioskCountBadge.textContent = `${kiosks.length} Active`;
-      kiosksContainer.innerHTML = kiosks.map(k => `
-        <div class="flex items-center justify-between p-xs bg-surface-container-low rounded-lg border border-border">
-          <div class="flex items-center gap-xs">
-            <span class="w-2 h-2 rounded-full bg-success"></span>
-            <div>
-              <p class="text-xs font-semibold text-on-surface">${k.name}</p>
-              <p class="text-[11px] text-on-surface-variant">${k.location} • ${k.ip || 'DHCP'}</p>
+      const data = list !== undefined ? list : kiosks;
+      const q = (searchInput?.value || '').trim();
+
+      if (kioskCountBadge) {
+        if (q && data.length < kiosks.length) {
+          kioskCountBadge.textContent = `${data.length}/${kiosks.length} Active`;
+        } else {
+          kioskCountBadge.textContent = `${data.length} Active`;
+        }
+      }
+
+      if (data.length === 0) {
+        kiosksContainer.innerHTML = `<div class="p-4 text-center text-xs text-on-surface-variant font-medium">No kiosks found matching "${q}"</div>`;
+        return;
+      }
+
+      kiosksContainer.innerHTML = data.map(k => {
+        const isCurrent = k.department_id === currentAdminDeptId;
+        const activeClass = isCurrent
+          ? 'border-secondary ring-1 ring-secondary/50 bg-secondary/5 shadow-sm'
+          : 'border-border bg-surface-container-low hover:border-secondary/40 hover:bg-surface-variant/30';
+        const kioskUrl = `${API_BASE}/Templates/QR_Generation_Page.html?department_id=${encodeURIComponent(k.department_id || currentAdminDeptId)}&kiosk_key=${encodeURIComponent(KIOSK_SECRET_KEY)}`;
+
+        return `
+          <div class="kiosk-item flex items-center justify-between p-sm rounded-lg border ${activeClass} transition-all cursor-pointer group" data-dept-id="${k.department_id || ''}">
+            <div class="flex items-center gap-sm flex-1 min-w-0 pr-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-success flex-shrink-0"></span>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <p class="text-xs font-bold text-on-surface truncate">${k.name}</p>
+                  <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded ${isCurrent ? 'bg-secondary text-white' : 'bg-secondary/10 text-secondary'}">${k.department_name || 'General'}</span>
+                </div>
+                <p class="text-[11px] text-on-surface-variant truncate">${k.location} • ${k.ip || 'DHCP'}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 flex-shrink-0">
+              <button type="button" class="btn-kiosk-copy p-1.5 hover:bg-surface-variant rounded-md text-on-surface-variant hover:text-secondary transition-colors cursor-pointer" data-url="${kioskUrl}" data-name="${k.name}" title="Copy Kiosk Display URL">
+                <span class="material-symbols-outlined text-[16px]">content_copy</span>
+              </button>
+              <button type="button" class="btn-kiosk-launch p-1.5 hover:bg-secondary/15 rounded-md text-secondary transition-colors cursor-pointer" data-url="${kioskUrl}" title="Launch Kiosk Fullscreen Display Mode">
+                <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+              </button>
             </div>
           </div>
-          <span class="text-[10px] bg-success/10 text-[#047857] px-1.5 py-0.5 rounded font-label-sm">${k.status}</span>
-        </div>
-      `).join('');
-      localStorage.setItem('sentinel_kiosks', JSON.stringify(kiosks));
-    }
-    renderKiosks();
+        `;
+      }).join('');
 
-    // ── Slider Display & Interval Update ──────────────────────
-    if (intervalSlider && intervalDisplay) {
-      intervalDisplay.textContent = `${intervalSlider.value}s`;
-
-      intervalSlider.addEventListener('input', (e) => {
-        const val = parseInt(e.target.value, 10);
-        intervalDisplay.textContent = `${val}s`;
+      // Add click listeners
+      kiosksContainer.querySelectorAll('.kiosk-item').forEach(el => {
+        el.addEventListener('click', (e) => {
+          if (e.target.closest('button')) return;
+          const deptId = el.getAttribute('data-dept-id');
+          if (deptId) {
+            selectDepartment(deptId);
+          }
+        });
       });
 
-      intervalSlider.addEventListener('change', async (e) => {
-        const val = parseInt(e.target.value, 10);
-        qrPollMs = val * 1000;
-        
-        if (qrPollIntervalTimer) clearInterval(qrPollIntervalTimer);
-        qrPollIntervalTimer = setInterval(fetchCurrentQR, qrPollMs);
-
-        try {
-          await fetch(`${API_BASE}/api/qr/settings`, {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({ intervalSeconds: val })
+      kiosksContainer.querySelectorAll('.btn-kiosk-copy').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const url = btn.getAttribute('data-url');
+          const name = btn.getAttribute('data-name');
+          navigator.clipboard.writeText(url).then(() => {
+            showToast(`Copied Kiosk URL for "${name}" to clipboard!`);
+          }).catch(() => {
+            prompt('Copy Kiosk Display URL:', url);
           });
-        } catch (err) {
-          console.error('[Settings] Error saving interval:', err);
+        });
+      });
+
+      kiosksContainer.querySelectorAll('.btn-kiosk-launch').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const url = btn.getAttribute('data-url');
+          window.open(url, '_blank');
+        });
+      });
+
+      localStorage.setItem('sentinel_kiosks_v2', JSON.stringify(kiosks));
+    }
+
+    // ── Interactive Geofence Map Modal Logic (Leaflet / OpenStreetMap) ──
+    function updateCoordDisplays(lat, lng) {
+      currentMapLat = parseFloat(Number(lat).toFixed(6));
+      currentMapLng = parseFloat(Number(lng).toFixed(6));
+      if (displayLat) displayLat.textContent = currentMapLat;
+      if (displayLng) displayLng.textContent = currentMapLng;
+    }
+
+    function initOrUpdateGeofenceMap() {
+      const currentDept = departmentsList.find(d => (d._id || d.id) === currentAdminDeptId) || departmentsList[0];
+      if (currentDept) {
+        currentMapLat = currentDept.geofence_lat != null ? currentDept.geofence_lat : 10.0159;
+        currentMapLng = currentDept.geofence_lng != null ? currentDept.geofence_lng : 76.3419;
+        currentMapRadius = currentDept.geofence_radius_m || 200;
+        if (modalDeptTitle) {
+          modalDeptTitle.textContent = `Editing perimeter boundary for ${currentDept.department_name}`;
         }
+      }
 
-        showToast(`Regeneration interval set to ${val} seconds.`);
+      updateCoordDisplays(currentMapLat, currentMapLng);
+      if (radiusSlider) radiusSlider.value = currentMapRadius;
+      if (radiusValText) radiusValText.textContent = `${currentMapRadius} meters`;
+
+      if (!leafletMap && typeof L !== 'undefined') {
+        leafletMap = L.map('geofence-leaflet-map').setView([currentMapLat, currentMapLng], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(leafletMap);
+
+        mapMarker = L.marker([currentMapLat, currentMapLng], { draggable: true }).addTo(leafletMap);
+        mapCircle = L.circle([currentMapLat, currentMapLng], {
+          radius: currentMapRadius,
+          color: '#2563EB',
+          fillColor: '#3B82F6',
+          fillOpacity: 0.18,
+          weight: 2
+        }).addTo(leafletMap);
+
+        mapMarker.on('drag', (e) => {
+          const pos = e.target.getLatLng();
+          mapCircle.setLatLng(pos);
+          updateCoordDisplays(pos.lat, pos.lng);
+        });
+
+        leafletMap.on('click', (e) => {
+          mapMarker.setLatLng(e.latlng);
+          mapCircle.setLatLng(e.latlng);
+          updateCoordDisplays(e.latlng.lat, e.latlng.lng);
+        });
+      } else if (leafletMap) {
+        mapMarker.setLatLng([currentMapLat, currentMapLng]);
+        mapCircle.setLatLng([currentMapLat, currentMapLng]);
+        mapCircle.setRadius(currentMapRadius);
+        leafletMap.setView([currentMapLat, currentMapLng], 16);
+      }
+
+      setTimeout(() => {
+        if (leafletMap) leafletMap.invalidateSize();
+      }, 200);
+    }
+
+    if (btnOpenGeofence && geofenceModal) {
+      btnOpenGeofence.addEventListener('click', () => {
+        geofenceModal.classList.remove('hidden');
+        initOrUpdateGeofenceMap();
       });
     }
 
-    // ── Toggles ───────────────────────────────────────────────
-    if (toggleGeofence) {
-      toggleGeofence.addEventListener('change', async () => {
-        const enabled = toggleGeofence.checked;
-        try {
-          await fetch(`${API_BASE}/api/qr/settings`, {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({ geofenceEnabled: enabled })
-          });
-        } catch (err) {}
-        showToast(`Geolocation enforcement ${enabled ? 'enabled (50m radius)' : 'disabled'}.`);
+    function hideGeofenceModal() {
+      if (geofenceModal) geofenceModal.classList.add('hidden');
+    }
+
+    if (closeGeofenceBtn) closeGeofenceBtn.addEventListener('click', hideGeofenceModal);
+    if (cancelGeofenceBtn) cancelGeofenceBtn.addEventListener('click', hideGeofenceModal);
+
+    if (radiusSlider) {
+      radiusSlider.addEventListener('input', (e) => {
+        currentMapRadius = parseInt(e.target.value, 10);
+        if (radiusValText) radiusValText.textContent = `${currentMapRadius} meters`;
+        if (mapCircle) mapCircle.setRadius(currentMapRadius);
       });
     }
 
-    if (toggleCrypto) {
-      toggleCrypto.addEventListener('change', async () => {
-        const enabled = toggleCrypto.checked;
-        try {
-          await fetch(`${API_BASE}/api/qr/settings`, {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({ cryptoSigningEnabled: enabled })
-          });
-        } catch (err) {}
-        showToast(`Cryptographic signing ${enabled ? 'enabled (HMAC-SHA256)' : 'disabled'}.`);
-      });
-    }
-
-    // ── Kiosk Action: Add New Kiosk Modal ─────────────────────
-    if (btnAddKiosk && addKioskModal) {
-      btnAddKiosk.addEventListener('click', () => {
-        addKioskModal.classList.remove('hidden');
-      });
-    }
-
-    function hideModal() {
-      if (addKioskModal) addKioskModal.classList.add('hidden');
-      if (addKioskForm) addKioskForm.reset();
-    }
-
-    if (closeKioskModal) closeKioskModal.addEventListener('click', hideModal);
-    if (cancelKioskModal) cancelKioskModal.addEventListener('click', hideModal);
-
-    if (addKioskForm) {
-      addKioskForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = kioskNameInput.value.trim();
-        const location = kioskLocInput.value.trim();
-        const ip = kioskIpInput.value.trim() || '192.168.1.' + Math.floor(Math.random() * 200 + 20);
-
-        if (!name || !location) return;
-
-        const newKiosk = {
-          id: Date.now(),
-          name,
-          location,
-          ip,
-          status: 'Online'
-        };
-
-        kiosks.push(newKiosk);
-        renderKiosks();
-        hideModal();
-        showToast(`New Kiosk "${name}" registered successfully!`);
-      });
-    }
-
-    // ── Kiosk Action: Launch Kiosk Display View ───────────────
-    if (btnLaunchKiosk) {
-      btnLaunchKiosk.addEventListener('click', async () => {
-        const deptId = await resolveAdminDepartment();
-        if (!deptId) {
-          showToast('Please specify a department_id first.', 'warning');
+    if (btnDetectLocation) {
+      btnDetectLocation.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+          showToast('Geolocation not supported by this browser.', 'warning');
           return;
         }
-        const key = prompt('Enter KIOSK_DISPLAY_KEY to launch kiosk display:', '');
-        if (!key) return;
+        btnDetectLocation.disabled = true;
+        btnDetectLocation.innerHTML = `<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span><span>Detecting...</span>`;
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            btnDetectLocation.disabled = false;
+            btnDetectLocation.innerHTML = `<span class="material-symbols-outlined text-[16px]">my_location</span><span>Detect My Location</span>`;
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            updateCoordDisplays(lat, lng);
+            if (mapMarker) mapMarker.setLatLng([lat, lng]);
+            if (mapCircle) mapCircle.setLatLng([lat, lng]);
+            if (leafletMap) leafletMap.flyTo([lat, lng], 17);
+            showToast(`Location detected: ${currentMapLat}, ${currentMapLng}`);
+          },
+          (err) => {
+            btnDetectLocation.disabled = false;
+            btnDetectLocation.innerHTML = `<span class="material-symbols-outlined text-[16px]">my_location</span><span>Detect My Location</span>`;
+            showToast(`Could not get location: ${err.message}`, 'warning');
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      });
+    }
 
-        const kioskUrl = `${API_BASE}/Templates/QR_Generation_Page.html?department_id=${encodeURIComponent(deptId)}&kiosk_key=${encodeURIComponent(key)}`;
-        window.open(kioskUrl, '_blank');
+    if (btnSaveGeofence) {
+      btnSaveGeofence.addEventListener('click', async () => {
+        if (!currentAdminDeptId) {
+          showToast('No department selected.', 'warning');
+          return;
+        }
+        btnSaveGeofence.disabled = true;
+        btnSaveGeofence.innerHTML = `<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span><span>Saving...</span>`;
+        try {
+          const res = await fetch(`${API_BASE}/api/departments/${encodeURIComponent(currentAdminDeptId)}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders()
+            },
+            body: JSON.stringify({
+              geofence_lat: currentMapLat,
+              geofence_lng: currentMapLng,
+              geofence_radius_m: currentMapRadius
+            })
+          });
+
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const updatedDept = await res.json();
+
+          const idx = departmentsList.findIndex(d => (d._id || d.id) === currentAdminDeptId);
+          if (idx !== -1) {
+            departmentsList[idx] = { ...departmentsList[idx], ...updatedDept };
+          }
+
+          if (geofenceStatusDesc) {
+            geofenceStatusDesc.textContent = `${currentMapRadius}m radius around ${currentMapLat}, ${currentMapLng}`;
+          }
+
+          hideGeofenceModal();
+          showToast(`Geofence updated: ${updatedDept.department_name} (${currentMapRadius}m perimeter)!`);
+        } catch (err) {
+          console.error('[Geofence Save] Error:', err);
+          showToast('Failed to update geofence coordinates.', 'error');
+        } finally {
+          btnSaveGeofence.disabled = false;
+          btnSaveGeofence.innerHTML = `<span class="material-symbols-outlined text-[16px]">save</span><span>Save Geofence</span>`;
+        }
       });
     }
 
@@ -806,15 +1161,40 @@
       });
     }
 
-    // ── Table Search Filtering ────────────────────────────────
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase().trim();
-        renderScansTable(rawScansData.filter(s => {
+    // ── Kiosk & Table Search Filtering ─────────────────────────
+    function applyKioskSearch(query) {
+      const q = (query || '').toLowerCase().trim();
+
+      // 1. Filter Kiosks
+      if (!q) {
+        renderKiosks(kiosks);
+      } else {
+        const filteredKiosks = kiosks.filter(k => {
+          return (k.name || '').toLowerCase().includes(q) ||
+                 (k.location || '').toLowerCase().includes(q) ||
+                 (k.department_name || '').toLowerCase().includes(q) ||
+                 (k.ip || '').toLowerCase().includes(q);
+        });
+        renderKiosks(filteredKiosks);
+      }
+
+      // 2. Filter Recent Scans Table
+      if (!q) {
+        renderScansTable(rawScansData);
+      } else {
+        const filteredScans = rawScansData.filter(s => {
           return (s.employee_name || '').toLowerCase().includes(q) ||
                  (s.status || '').toLowerCase().includes(q) ||
-                 (s.check_in_time || '').toLowerCase().includes(q);
-        }));
+                 (s.check_in_time || '').toLowerCase().includes(q) ||
+                 (s.department_name || '').toLowerCase().includes(q);
+        });
+        renderScansTable(filteredScans);
+      }
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        applyKioskSearch(e.target.value);
       });
     }
 
@@ -898,13 +1278,69 @@
         rawScansData = await res.json();
         const q = (searchInput?.value || '').toLowerCase().trim();
         if (q) {
-          renderScansTable(rawScansData.filter(s => (s.employee_name || '').toLowerCase().includes(q)));
+          applyKioskSearch(q);
         } else {
           renderScansTable(rawScansData);
         }
       } catch (err) {
         console.error('[Scans Poll] Error:', err.message);
       }
+    }
+
+    // ── Global QR Settings Listeners ──────────────────────────
+    if (intervalSlider) {
+      intervalSlider.addEventListener('input', () => {
+        if (intervalDisplay) intervalDisplay.textContent = `${intervalSlider.value}s`;
+      });
+      intervalSlider.addEventListener('change', async () => {
+        const val = parseInt(intervalSlider.value, 10);
+        if (intervalDisplay) intervalDisplay.textContent = `${val}s`;
+        try {
+          const res = await fetch(`${API_BASE}/api/qr/settings`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders(),
+            },
+            body: JSON.stringify({ intervalSeconds: val }),
+          });
+          if (res.status === 401) { clearAuthAndRedirect(); return; }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          showToast(`QR regeneration interval updated to ${val}s`);
+          await fetchCurrentQR();
+        } catch (err) {
+          console.error('[Interval Slider] Error:', err);
+          showToast('Failed to update QR interval.', 'error');
+        }
+      });
+    }
+
+    if (toggleGeofence) {
+      toggleGeofence.addEventListener('change', async () => {
+        const isEnforced = toggleGeofence.checked;
+        updateActiveDeptHeader();
+        try {
+          const res = await fetch(`${API_BASE}/api/qr/settings`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders(),
+            },
+            body: JSON.stringify({
+              geofenceEnabled: isEnforced,
+              geofenceMode: isEnforced ? 'enforce' : 'off',
+            }),
+          });
+          if (res.status === 401) { clearAuthAndRedirect(); return; }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          showToast(isEnforced ? 'Geolocation enforcement enabled (perimeter enforced).' : 'Geolocation enforcement disabled.');
+        } catch (err) {
+          console.error('[Geofence Toggle] Error:', err);
+          toggleGeofence.checked = !isEnforced;
+          updateActiveDeptHeader();
+          showToast('Failed to update geolocation enforcement.', 'error');
+        }
+      });
     }
 
     // ── Fetch Server Settings ─────────────────────────────────
@@ -919,9 +1355,7 @@
           }
           if (typeof s.geofenceEnabled === 'boolean' && toggleGeofence) {
             toggleGeofence.checked = s.geofenceEnabled;
-          }
-          if (typeof s.cryptoSigningEnabled === 'boolean' && toggleCrypto) {
-            toggleCrypto.checked = s.cryptoSigningEnabled;
+            updateActiveDeptHeader();
           }
         }
       } catch (err) {}
@@ -929,8 +1363,13 @@
 
     // ── Boot Admin ────────────────────────────────────────────
     fetchSettings();
-    fetchCurrentQR();
+    loadDepartments();
     fetchRecentScans();
+    const initialSearch = urlParams.get('search');
+    if (initialSearch && searchInput) {
+      searchInput.value = initialSearch;
+      setTimeout(() => applyKioskSearch(initialSearch), 300);
+    }
     qrPollIntervalTimer = setInterval(fetchCurrentQR, qrPollMs);
     scansPollIntervalTimer = setInterval(fetchRecentScans, qrPollMs);
   }

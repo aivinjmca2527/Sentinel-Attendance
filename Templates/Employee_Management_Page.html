@@ -119,7 +119,7 @@
 <!-- Sidebar -->
 <div id="sidebar-container" class="fixed left-0 top-0 z-40 hidden md:block"></div>
 <!-- TopAppBar -->
-<header class="bg-surface dark:bg-inverse-surface fixed top-0 w-full z-30 border-b border-border dark:border-outline-variant flex justify-between items-center px-margin-mobile md:px-margin-desktop h-16 md:ml-64 md:max-w-[calc(100%-16rem)]"><div class="flex items-center gap-4 flex-1"><div class="font-headline-sm text-headline-sm font-black text-primary dark:text-primary-fixed-dim mr-8">Sentinel Attendance</div><div class="relative max-w-xs w-full hidden md:block"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span><input class="w-full pl-10 pr-4 py-1.5 border border-border rounded-DEFAULT font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-surface-container-low transition-shadow" placeholder="Search..." type="text"></div></div><div class="flex items-center gap-4"><button class="text-on-surface-variant hover:text-primary transition-colors p-2 focus:ring-2 ring-secondary/50 rounded-full"><span class="material-symbols-outlined">notifications</span></button><button class="focus:ring-2 ring-secondary/50 rounded-full overflow-hidden"><img alt="User profile" class="w-8 h-8 object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_6KVVScPn2XvQsposjy0RDASuBQr7AMBqYVlrX5L7F3NX553vLkec_T0RU0eSDXFDy6HR-2NIIzGt61eMxg217mRtDJqBUQCValRH5GEmLjAHv6OQMJ5NFsjFF05vR22jSxW3onhTWLa4WI2APkKOjNFjKXbUKke1bg2f8pEU8OsmMXPjKw5LbfK6F73l3uQ8qz7GkrjHcracNlgzS052ZbFzGBLz9t3sd-4JIk98FA5yx9V2V5_l"></button></div></header>
+<header class="bg-surface dark:bg-inverse-surface fixed top-0 w-full z-30 border-b border-border dark:border-outline-variant flex justify-between items-center px-margin-mobile md:px-margin-desktop h-16 md:ml-64 md:max-w-[calc(100%-16rem)]"><div class="flex items-center gap-4 flex-1"><div class="font-headline-sm text-headline-sm font-black text-primary dark:text-primary-fixed-dim mr-8">Sentinel Attendance</div><div class="relative max-w-xs w-full hidden md:block"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span><input id="header-search-input" class="w-full pl-10 pr-4 py-1.5 border border-border rounded-DEFAULT font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-surface-container-low transition-shadow" placeholder="Search employees..." type="text"></div></div><div class="flex items-center gap-4"><button class="text-on-surface-variant hover:text-primary transition-colors p-2 focus:ring-2 ring-secondary/50 rounded-full"><span class="material-symbols-outlined">notifications</span></button><button class="focus:ring-2 ring-secondary/50 rounded-full overflow-hidden"><img alt="User profile" class="w-8 h-8 object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_6KVVScPn2XvQsposjy0RDASuBQr7AMBqYVlrX5L7F3NX553vLkec_T0RU0eSDXFDy6HR-2NIIzGt61eMxg217mRtDJqBUQCValRH5GEmLjAHv6OQMJ5NFsjFF05vR22jSxW3onhTWLa4WI2APkKOjNFjKXbUKke1bg2f8pEU8OsmMXPjKw5LbfK6F73l3uQ8qz7GkrjHcracNlgzS052ZbFzGBLz9t3sd-4JIk98FA5yx9V2V5_l"></button></div></header>
 <!-- Main Content Area -->
 <main class="pt-20 md:pt-24 pb-12 px-margin-mobile md:px-margin-desktop md:ml-64 max-w-container-max mx-auto">
 <!-- Page Header & Actions -->
@@ -146,7 +146,7 @@
 <div class="p-4 border-b border-border bg-surface-bright flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 <div class="relative max-w-md w-full">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
-<input class="w-full pl-10 pr-4 py-2 border border-border rounded-DEFAULT font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-surface transition-shadow" placeholder="Search by name, ID, or department..." type="text">
+<input id="employee-table-search" class="w-full pl-10 pr-4 py-2 border border-border rounded-DEFAULT font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-surface transition-shadow" placeholder="Search by name, ID, or department..." type="text">
 </div>
 <div class="flex items-center gap-2">
 <button class="flex items-center gap-2 px-3 py-2 border border-border rounded-DEFAULT hover:bg-surface-container-low transition-colors text-on-surface font-label-md text-label-md">
@@ -200,7 +200,8 @@
 
   // ── DOM refs ──
   const tbody = document.querySelector('tbody');
-  const searchInput = document.querySelector('input[placeholder*="Search"]');
+  const headerSearchInput = document.getElementById('header-search-input');
+  const tableSearchInput = document.getElementById('employee-table-search');
   const filterBtn = document.querySelector('button .material-symbols-outlined');
   const addBtn = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Add New Employee'));
   const paginationInfo = document.querySelector('.p-4.border-t .div, .p-4.border-t div') ||
@@ -311,17 +312,16 @@
   // ── Load employees ──
   async function loadEmployees() {
     try {
-      const search = searchInput ? searchInput.value.trim() : '';
-      let url = API_BASE + '/api/employees';
-      const params = [];
-      if (search) params.push('search=' + encodeURIComponent(search));
-      if (params.length) url += '?' + params.join('&');
-
-      const res = await fetch(url, { headers: authHeaders() });
+      const res = await fetch(API_BASE + '/api/employees', { headers: authHeaders() });
       if (handle401(res)) return;
       if (!res.ok) throw new Error('HTTP ' + res.status);
       allEmployees = await res.json();
-      renderTable();
+      const currentQuery = (tableSearchInput?.value || headerSearchInput?.value || '').trim();
+      if (currentQuery) {
+        applyEmployeeFilter(currentQuery);
+      } else {
+        renderTable(allEmployees);
+      }
     } catch (err) {
       console.error('[Employees]', err);
       tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-error">Failed to load employees</td></tr>';
@@ -344,14 +344,17 @@
     return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm text-label-sm ' + cls + '">' + label + '</span>';
   }
 
-  function renderTable() {
-    if (allEmployees.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-on-surface-variant">No employees found</td></tr>';
-      updatePagination(0);
+  function renderTable(list) {
+    const data = list !== undefined ? list : allEmployees;
+    if (data.length === 0) {
+      const q = (tableSearchInput?.value || headerSearchInput?.value || '').trim();
+      const emptyMsg = q ? `No employees found matching "${q}"` : 'No employees found';
+      tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-6 text-center text-on-surface-variant font-medium">${emptyMsg}</td></tr>`;
+      updatePagination(0, allEmployees.length);
       return;
     }
 
-    tbody.innerHTML = allEmployees.map((emp, i) => {
+    tbody.innerHTML = data.map((emp, i) => {
       const zebra = i % 2 === 1 ? 'bg-[#F8FAFC]' : '';
       const actionHtml = canWrite ? `
         <button class="text-on-surface-variant hover:text-secondary transition-colors p-1 emp-edit-btn" data-id="${emp.id}" title="Edit">
@@ -374,7 +377,7 @@
       '</tr>';
     }).join('');
 
-    updatePagination(allEmployees.length);
+    updatePagination(data.length, allEmployees.length);
 
     // Bind edit/delete
     document.querySelectorAll('.emp-edit-btn').forEach(btn => {
@@ -385,9 +388,15 @@
     });
   }
 
-  function updatePagination(count) {
+  function updatePagination(displayedCount, totalCount) {
     const infoEl = document.querySelector('.p-4.border-t div');
-    if (infoEl) infoEl.textContent = 'Showing 1 to ' + count + ' of ' + count + ' entries';
+    if (infoEl) {
+      if (displayedCount < totalCount) {
+        infoEl.textContent = 'Showing ' + displayedCount + ' of ' + totalCount + ' employees (filtered)';
+      } else {
+        infoEl.textContent = 'Showing 1 to ' + displayedCount + ' of ' + displayedCount + ' entries';
+      }
+    }
   }
 
   // ── Add employee ──
@@ -485,13 +494,38 @@
     }
   }
 
-  // ── Search ──
-  let searchTimer;
-  if (searchInput) {
-    searchInput.addEventListener('input', () => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(loadEmployees, 300);
+  // ── Search & Filter Logic ──
+  function applyEmployeeFilter(query) {
+    const q = (query || '').toLowerCase().trim();
+    if (!q) {
+      renderTable(allEmployees);
+      return;
+    }
+    const filtered = allEmployees.filter(emp => {
+      const idStr = String(emp.id || emp._id || '').toLowerCase();
+      const name = (emp.name || '').toLowerCase();
+      const email = (emp.email || '').toLowerCase();
+      const dept = (emp.department_name || '').toLowerCase();
+      const desig = (emp.designation || '').toLowerCase();
+      const role = (emp.role || '').toLowerCase();
+      const status = (emp.status || '').toLowerCase();
+      const haystack = `${name} ${idStr} ${dept} ${desig} ${email} ${role} ${status}`;
+      return haystack.includes(q);
     });
+    renderTable(filtered);
+  }
+
+  function handleSearchInput(val) {
+    if (headerSearchInput && headerSearchInput.value !== val) headerSearchInput.value = val;
+    if (tableSearchInput && tableSearchInput.value !== val) tableSearchInput.value = val;
+    applyEmployeeFilter(val);
+  }
+
+  if (headerSearchInput) {
+    headerSearchInput.addEventListener('input', (e) => handleSearchInput(e.target.value));
+  }
+  if (tableSearchInput) {
+    tableSearchInput.addEventListener('input', (e) => handleSearchInput(e.target.value));
   }
 
   // ── Boot ──
@@ -499,7 +533,13 @@
     clearAuthAndRedirect();
   } else {
     loadDepartments();
-    loadEmployees();
+    loadEmployees().then(() => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const initialSearch = urlParams.get('search');
+      if (initialSearch) {
+        handleSearchInput(initialSearch);
+      }
+    });
   }
 })();
 </script>

@@ -352,16 +352,23 @@
   }
 
   function renderTable() {
-    var searchTerm = (searchInput.value || '').toLowerCase();
+    var searchTerm = (searchInput.value || '').toLowerCase().trim();
     var deptVal = (deptFilter.value || '').toLowerCase();
     var statusVal = statusFilter.value || '';
 
     var filtered = allRecords.filter(function(r) {
       if (searchTerm) {
-        var haystack = (r.employee_name + ' ' + r.employee_id + ' ' + r.designation).toLowerCase();
+        var haystack = [
+          r.employee_name || '',
+          r.employee_id || '',
+          r.department_name || '',
+          r.designation || '',
+          r.status || '',
+          r.email || ''
+        ].join(' ').toLowerCase();
         if (haystack.indexOf(searchTerm) === -1) return false;
       }
-      if (deptVal && (r.designation || '').toLowerCase().indexOf(deptVal) === -1) return false;
+      if (deptVal && (r.department_name || r.designation || '').toLowerCase().indexOf(deptVal) === -1) return false;
       if (statusVal && r.status !== statusVal) return false;
       return true;
     });
@@ -369,7 +376,8 @@
     paginationInfo.textContent = 'Showing ' + filtered.length + ' of ' + allRecords.length + ' entries';
 
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="px-md py-3 text-center text-on-surface-variant">No records found</td></tr>';
+      var emptyMsg = searchTerm ? 'No records matching "' + searchInput.value.trim() + '"' : 'No records found';
+      tbody.innerHTML = '<tr><td colspan="7" class="px-md py-6 text-center text-on-surface-variant font-medium">' + emptyMsg + '</td></tr>';
       return;
     }
 
@@ -438,6 +446,11 @@
   refreshBtn.addEventListener('click', fetchAttendance);
 
   // Initial load
+  var urlParams = new URLSearchParams(window.location.search);
+  var initialSearch = urlParams.get('search');
+  if (initialSearch && searchInput) {
+    searchInput.value = initialSearch;
+  }
   fetchWorkforceCount();
   fetchAttendance();
 })();

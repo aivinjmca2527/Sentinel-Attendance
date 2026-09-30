@@ -227,11 +227,34 @@ async function checkout(req, res) {
  */
 async function getAttendanceRecords(req, res) {
   try {
+    const Employee = require('../../shared/models/Employee');
+    const role = (req.user?.role || '').toLowerCase();
     const filter = {};
     const { employee_id, date, start_date, end_date } = req.query;
 
-    if (employee_id) {
-      filter.employee_id = employee_id;
+    if (role === 'manager') {
+      const deptId = req.user?.department_id;
+      if (!deptId) {
+        return res.json([]);
+      }
+
+      const deptEmployees = await Employee.find({ department_id: deptId }).select('_id').lean();
+      const deptEmployeeIds = deptEmployees.map(e => String(e._id));
+
+      if (employee_id) {
+        if (!deptEmployeeIds.includes(String(employee_id))) {
+          return res.json([]);
+        }
+        filter.employee_id = employee_id;
+      } else {
+        filter.employee_id = { $in: deptEmployees.map(e => e._id) };
+      }
+    } else if (role === 'admin') {
+      if (employee_id) {
+        filter.employee_id = employee_id;
+      }
+    } else {
+      return res.status(403).json({ error: 'Access denied.' });
     }
 
     if (date) {
@@ -254,7 +277,10 @@ async function getAttendanceRecords(req, res) {
       .sort({ date: -1, check_in_time: -1 })
       .populate({
         path: 'employee_id',
-        populate: { path: 'user_id', select: 'name email' },
+        populate: [
+          { path: 'user_id', select: 'name email' },
+          { path: 'department_id', select: 'department_name' },
+        ],
       })
       .lean();
 
@@ -264,6 +290,7 @@ async function getAttendanceRecords(req, res) {
       employee_id: r.employee_id?._id,
       employee_name: r.employee_id?.user_id?.name || 'Unknown',
       employee_email: r.employee_id?.user_id?.email || '',
+      department_name: r.employee_id?.department_id?.department_name || '',
       designation: r.employee_id?.designation || '',
       date: r.date,
       check_in_time: r.check_in_time,

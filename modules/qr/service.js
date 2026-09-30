@@ -27,7 +27,8 @@ async function generateQRSession(departmentId) {
     .digest('hex');
 
   const now = new Date();
-  const expires_at = new Date(now.getTime() + CODE_EXPIRY_SECONDS * 1000);
+  const expirySeconds = currentSettings.intervalSeconds || 15;
+  const expires_at = new Date(now.getTime() + expirySeconds * 1000);
 
   if (!departmentId) {
     try {
@@ -81,8 +82,10 @@ let rotationInterval = null;
 function startRotationLoop() {
   if (rotationInterval) return; // already running
 
+  const intervalSec = currentSettings.intervalSeconds || 15;
+  const intervalMs = intervalSec * 1000;
   console.log('[QR Service] Starting QR rotation loop ' +
-    `(interval: ${ROTATION_INTERVAL_MS}ms, expiry: ${CODE_EXPIRY_SECONDS}s)`);
+    `(interval: ${intervalMs}ms, expiry: ${intervalSec}s)`);
 
   rotationInterval = setInterval(async () => {
     try {
@@ -92,7 +95,7 @@ function startRotationLoop() {
     } catch (err) {
       console.error('[QR Service] Failed to rotate QR session:', err.message);
     }
-  }, ROTATION_INTERVAL_MS);
+  }, intervalMs);
 }
 
 /**
@@ -116,7 +119,13 @@ let currentSettings = {
  * Return current QR security settings.
  */
 function getSettings() {
-  return { ...currentSettings };
+  const { getGeofenceMode } = require('../../shared/config/geofence');
+  const currentMode = getGeofenceMode();
+  return {
+    ...currentSettings,
+    geofenceEnabled: currentMode !== 'off',
+    geofenceMode: currentMode,
+  };
 }
 
 /**
@@ -124,16 +133,32 @@ function getSettings() {
  * @param {Object} newSettings
  */
 function updateSettings(newSettings) {
+  let intervalChanged = false;
   if (typeof newSettings.intervalSeconds === 'number') {
-    currentSettings.intervalSeconds = Math.max(5, Math.min(60, newSettings.intervalSeconds));
+    const val = Math.max(5, Math.min(60, Math.round(newSettings.intervalSeconds)));
+    if (val !== currentSettings.intervalSeconds) {
+      currentSettings.intervalSeconds = val;
+      intervalChanged = true;
+    }
   }
+
   if (typeof newSettings.geofenceEnabled === 'boolean') {
     currentSettings.geofenceEnabled = newSettings.geofenceEnabled;
+    const { setGeofenceMode } = require('../../shared/config/geofence');
+    if (!newSettings.geofenceEnabled) {
+      setGeofenceMode('off');
+    } else {
+      setGeofenceMode(newSettings.geofenceMode || 'enforce');
+    }
   }
-  if (typeof newSettings.cryptoSigningEnabled === 'boolean') {
-    currentSettings.cryptoSigningEnabled = newSettings.cryptoSigningEnabled;
+
+  if (intervalChanged && rotationInterval) {
+    clearInterval(rotationInterval);
+    rotationInterval = null;
+    startRotationLoop();
   }
-  return { ...currentSettings };
+
+  return getSettings();
 }
 
 /**

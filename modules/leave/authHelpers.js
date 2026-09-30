@@ -6,12 +6,12 @@
  * needed by the leave controller's department-based auth checks.
  */
 
-const { requireAuth } = require('../../shared/middleware/auth.middleware.js');
+const { requireAuth, getManagerDepartment } = require('../../shared/middleware/auth.middleware.js');
 const Employee = require('../../shared/models/Employee');
 
 /**
  * authenticate – runs the shared JWT middleware, then enriches req.user
- * with employee_id and department_id (which the JWT may not carry).
+ * with employee_id and department_id using shared getManagerDepartment.
  */
 const authenticate = async (req, res, next) => {
   // Run the shared JWT middleware first
@@ -31,13 +31,18 @@ const authenticate = async (req, res, next) => {
           const employee = await Employee.findOne({ user_id: req.user._id }).lean();
           if (employee) {
             req.user.employee_id = employee._id;
-            req.user.department_id = employee.department_id;
+            if (employee.department_id) {
+              req.user.department_id = employee.department_id;
+            }
           }
-        } else if (!req.user.department_id) {
-          // employee_id is in JWT but department_id isn't — look up department
-          const employee = await Employee.findById(req.user.employee_id).lean();
-          if (employee) {
-            req.user.department_id = employee.department_id;
+        }
+
+        // Use shared getManagerDepartment helper for manager department resolution
+        const role = (req.user.role || '').toLowerCase();
+        if (role === 'manager' && !req.user.department_id) {
+          const deptId = await getManagerDepartment(req.user._id, req.user.employee_id);
+          if (deptId) {
+            req.user.department_id = deptId;
           }
         }
 
@@ -54,14 +59,13 @@ const authenticate = async (req, res, next) => {
 
 /**
  * requireRole(roles) – middleware factory.
- * Must be placed AFTER `authenticate` in the middleware chain.
- * Returns 403 if the authenticated user's role is not in the allowed list.
- *
- * Usage: requireRole(['manager', 'admin'])
+ * Case-insensitive comparison.
  */
-const requireRole = (roles) => {
+const requireRole = (...roles) => {
+  const allowed = roles.flat().map(r => String(r).toLowerCase());
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    const userRole = req.user?.role ? String(req.user.role).toLowerCase() : '';
+    if (!req.user || !allowed.includes(userRole)) {
       return res.status(403).json({ error: 'Insufficient permissions.' });
     }
     next();
