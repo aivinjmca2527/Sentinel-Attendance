@@ -253,6 +253,20 @@ async function getAttendanceRecords(req, res) {
       if (employee_id) {
         filter.employee_id = employee_id;
       }
+    } else if (role === 'employee') {
+      let empId = req.user?.employee_id;
+      if (!empId && req.user?.id) {
+        const empDoc = await Employee.findOne({ user_id: req.user.id }).select('_id').lean();
+        if (empDoc) empId = empDoc._id;
+      }
+      if (!empId) {
+        return res.status(403).json({ error: 'No employee record linked to this account.' });
+      }
+      // Employees can only view their own records
+      if (employee_id && String(employee_id) !== String(empId)) {
+        return res.status(403).json({ error: 'Access denied. You can only view your own attendance.' });
+      }
+      filter.employee_id = empId;
     } else {
       return res.status(403).json({ error: 'Access denied.' });
     }
