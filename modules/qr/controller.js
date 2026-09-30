@@ -116,8 +116,48 @@ async function updateSettings(req, res) {
   }
 }
 
+/**
+ * GET /api/qr/kiosk-view?department_id=xxx&kiosk_key=yyy
+ * Low-privilege, unauthenticated endpoint for physical kiosk display screens.
+ * Validates kiosk_key against process.env.KIOSK_DISPLAY_KEY.
+ * Returns 401 without revealing whether department_id is valid on auth failure.
+ * Reuses the exact same underlying QR session logic as getCurrentQR.
+ */
+async function getKioskQR(req, res) {
+  try {
+    const { department_id } = req.query;
+    const kiosk_key = req.query.kiosk_key || req.headers['x-kiosk-key'];
+    const configuredKey = process.env.KIOSK_DISPLAY_KEY;
+
+    // 1. Validate kiosk_key against configured environment secret
+    // Do NOT validate or reveal anything about department_id if the key is invalid or missing
+    if (!configuredKey || !kiosk_key || kiosk_key !== configuredKey) {
+      return res.status(401).json({ error: 'Invalid or missing kiosk display key.' });
+    }
+
+    // 2. Validate department_id
+    if (!department_id) {
+      return res.status(400).json({ error: 'department_id query parameter is required.' });
+    }
+
+    // 3. Call same underlying QR generation/rotation logic as getCurrentQR
+    const session = await qrService.getOrCreateCurrentSession(department_id);
+    return res.json({
+      qr_session_id: session._id,
+      department_id: session.department_id,
+      code_value: session.code_value,
+      signature: session.signature,
+      expires_at: session.expires_at,
+    });
+  } catch (err) {
+    console.error('[QR Controller] getKioskQR error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve kiosk QR session.' });
+  }
+}
+
 module.exports = {
   getCurrentQR,
+  getKioskQR,
   getRecentScans,
   regenerateKeys,
   getSettings,

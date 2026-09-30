@@ -101,6 +101,44 @@ Performs verification, updates today's attendance record with check-out timestam
 
 ---
 
+### 1.3 GET `/api/qr/kiosk-view`
+
+Low-privilege, unauthenticated endpoint for physical attendance kiosk screens to retrieve the active rotating QR code without holding an administrative JWT session.
+
+- **Authentication:** Unauthenticated via JWT (`requireAuth` bypassed). Authenticated via low-privilege shared secret `kiosk_key` matched against `process.env.KIOSK_DISPLAY_KEY`.
+- **HTTP Method:** `GET`
+- **Route:** `/api/qr/kiosk-view`
+- **Rate Limiting:** Enforced via `express-rate-limit` (default max 300 requests per 15-minute window; returns HTTP 429 when exceeded).
+
+#### Query Parameters
+| Parameter | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `department_id` | `string` | **Yes** | MongoDB ObjectId hex string of the department whose QR session is being displayed. |
+| `kiosk_key` | `string` | **Yes** | Shared secret string matching `process.env.KIOSK_DISPLAY_KEY`. Can also be passed via `x-kiosk-key` header. |
+
+#### Security Guarantees
+1. **Low Privilege:** Access to `kiosk_key` grants read-only access to rotating ephemeral QR codes only. It cannot access employee personal data, cannot modify settings, cannot access attendance logs, and cannot sign administrative tokens.
+2. **Credential Blindness:** If `kiosk_key` is invalid or missing, the server returns HTTP 401 immediately without verifying or revealing whether `department_id` exists in the database.
+
+#### Response: Success (`200 OK`)
+```json
+{
+  "qr_session_id": "6741f0a2e4b02a1d4c8e9012",
+  "department_id": "6aa0b5124d4f05d801fc7903",
+  "code_value": "8f3b2c1a...",
+  "signature": "e7d8f9a0...",
+  "expires_at": "2026-09-30T09:05:10.000Z"
+}
+```
+
+#### Response: Error Status Codes
+- `400 Bad Request`: Missing required `department_id` query parameter (`{ "error": "department_id query parameter is required." }`).
+- `401 Unauthorized`: Missing, unconfigured, or mismatched `kiosk_key` (`{ "error": "Invalid or missing kiosk display key." }`).
+- `429 Too Many Requests`: Rate limit exceeded (`{ "error": "Too many kiosk display requests. Please try again later." }`).
+- `500 Internal Server Error`: Server or database failure.
+
+---
+
 ## 2. Geofence Verification (`verifyGeofence`)
 
 Located in [`modules/attendance/verificationSteps.js`](file:///home/aivin/Desktop/GIt/projects/Sentinel-Attendance/modules/attendance/verificationSteps.js).

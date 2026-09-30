@@ -548,9 +548,83 @@ missing-mock-flag, and header-override-with-bad-secret cases).
 - Device attestation (Play Integrity / DeviceCheck) - future work if spoofing becomes a
   real concern.
 - Face auth (`verifyFaceMatch`) - separate future track, unstarted.
-- Mobile side (QR scanner + GPS capture calling these endpoints) - NEXT UP, not yet built.
+- Mobile side (QR scanner + GPS capture calling these endpoints) - COMPLETED 2026-09-29, see Section 18.
 
-### Immediate next step
+### Immediate next step (COMPLETED 2026-09-29 - see Section 18)
 Mobile QR check-in/checkout + GPS capture, in the separate Flutter repo, using the field
 names in `docs/API_CONTRACT_ATTENDANCE.md` (`latitude`, `longitude`, `accuracy_m`,
 `is_mock_location`) and handling all the new enforce-mode error codes above.
+
+## 18. Mobile App: GPS Geofence Capture & Scanner Extension (added 2026-09-29)
+
+**Status: COMPLETED** in `Sentinel-App` Flutter client repository. `flutter analyze` clean,
+`flutter test` passing (1/1) after the change.
+
+### Key Changes Implemented
+1. **Endpoint Paths (`lib/core/api_endpoints.dart`):**
+   - Corrected `ApiEndpoints.checkIn` from `/attendance/check-in` to `/attendance/checkin`.
+   - Corrected `ApiEndpoints.checkOut` from `/attendance/check-out` to `/attendance/checkout`.
+   - Verified backend routes: `modules/attendance/routes.js` only exposes `POST /checkin`,
+     `POST /checkout`, and `GET /`. `/attendance/today` and `/attendance/department` do NOT
+     exist on the backend (see the open bug below - this was a pre-existing issue, unrelated
+     to this task, discovered as a side effect of verifying the checkin/checkout paths).
+2. **Dependencies & Permissions:** Added `geolocator: ^14.0.2`; `ACCESS_FINE_LOCATION` /
+   `ACCESS_COARSE_LOCATION` in `AndroidManifest.xml`; `NSLocationWhenInUseUsageDescription`
+   in `Info.plist`.
+3. **Provider Extension (`employee_home_provider.dart`):** `checkIn`/`checkOut` now accept
+   `latitude`, `longitude`, `accuracy_m`, `is_mock_location` (always sent as an explicit
+   boolean, defaulted to `false`, never omitted). Unpacks `qr_session_id`/`code_value`/
+   `signature` from the scanned QR JSON. Retains `_lastStatusCode`/`_lastErrorData` for
+   error-mapping in the UI.
+4. **Scanner Screen (`scanner_screen.dart`):** Requests foreground location permission on
+   entry; fetches a fresh high-accuracy fix immediately before submission (never cached);
+   reads `position.isMocked`; maps `403 OUTSIDE_GEOFENCE` (shows distance vs. radius),
+   `403 MOCK_LOCATION`, `422`, `400 LOCATION_REQUIRED`, and `400
+   MOCK_LOCATION_FLAG_REQUIRED` (logged as a client bug, auto-retries once) to in-screen
+   banners. No geofence pass/fail logic runs on the device.
+
+### 🔴 Open bug discovered during this task (NOT fixed yet - separate from the above)
+`lib/core/api_endpoints.dart` also defines `/attendance/today` (used by
+`EmployeeHomeProvider.fetchTodayAttendance()`) and `/attendance/department` (used by
+`TeamAttendanceProvider`) - **neither route exists on the backend.** The
+`PROJECT_STRUCTURE_AND_FEATURES.md` feature matrix marks both the employee "Today's
+Attendance status tracking" and the manager "Department attendance roster" as
+"✓ Implemented," but given these endpoints don't exist, calls to them should be failing
+(404) right now. The real backend route for both is `GET /api/attendance` with query
+params (`employee_id` + `date` for the employee case, `date` alone for the department
+case) - confirmed directly from `modules/attendance/controller.js` /
+`getAttendanceRecords`. This needs a follow-up fix in both providers (map to the real
+query-based route) before it can be considered actually working. Not yet started.
+
+### Manual test checklist (from the implementing agent, not yet independently verified)
+Successful check-in with location; permission denied; permission permanently denied; GPS
+disabled; mock location flagged (log mode succeeds + alert, enforce mode 403); outside-radius
+in enforce mode (403, distance/radius shown, no attendance record written). Scenario 6
+requires the backend's `GEOFENCE_MODE` to actually be set to `enforce` to observe the
+rejection - it defaults to `log`.
+
+## 19. Low-Privilege Kiosk Display Mode (added 2026-09-30)
+
+**Status: COMPLETED.** Verified via automated integration tests (`tests/test_kiosk_qr.js` 13/13 passing, `tests/test_e2e.js` 41/41 passing) and headless browser verification.
+
+### Context & Motivation
+Previously, displaying rotating attendance QR codes on physical kiosk screens required an administrative or manager login session holding a full JWT token stored in browser `localStorage`. This introduced unnecessary security exposure for physical screens that only need to display rotating QR codes.
+
+### Architecture & Key Changes
+1. **Low-Privilege Shared Secret (`KIOSK_DISPLAY_KEY`):**
+   - Configured in `.env` and `.env.example`.
+   - Distinct from administrative credentials; leaking this key only allows viewing ephemeral rotating QR codes, without access to employee records, attendance histories, or admin configurations.
+2. **Kiosk View Endpoint (`GET /api/qr/kiosk-view`):**
+   - Query Parameters: `department_id`, `kiosk_key` (also accepts `x-kiosk-key` header).
+   - Validates `kiosk_key === process.env.KIOSK_DISPLAY_KEY` before inspecting `department_id`.
+   - Returns HTTP 401 with `{ error: 'Invalid or missing kiosk display key.' }` on mismatch or absence, without revealing department validity.
+   - Reuses `qrService.getOrCreateCurrentSession(department_id)` to ensure identical cryptographic signature and rotation behavior as the authenticated `GET /api/qr/current` route without duplicate logic.
+3. **Rate Limiting:**
+   - Protected with `express-rate-limit` (`kioskLimiter` on `/api/qr/kiosk-view`), using standard headers and max 300 requests per 15-minute window (adjusted to 1000 in `NODE_ENV=test`).
+4. **Dual-Mode Frontend (`Templates/QR_Generation_Page.html`):**
+   - **Kiosk Display Mode** (`?department_id=<id>&kiosk_key=<key>`): Completely bypasses `Templates/shared/auth.js` and `sidebar.js`, requires zero JWT tokens, and renders a focused, distraction-free kiosk display card with live rotating QR code, countdown timer, clear mobile app instructions, error handling states, and fullscreen toggle.
+   - **Admin Management Mode** (no `kiosk_key`): Preserves the full admin dashboard, sidebar, global settings sliders/toggles, registered kiosks table, and recent scans stream for authenticated administrators. Added a "Launch Kiosk Display Mode" shortcut.
+5. **Documentation & Tests:**
+   - Added Section 1.3 to `docs/API_CONTRACT_ATTENDANCE.md`.
+   - Comprehensive test suite added in `tests/test_kiosk_qr.js`.
+

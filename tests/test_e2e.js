@@ -432,9 +432,11 @@ async function run() {
       `status=${outsideLog.s}, dist=${logAlert ? logAlert.metadata.distance_m : 'none'}m`);
 
     // 5. Off mode: outside-radius check-in succeeds, no SecurityAlert created
-    const offEmail = `off.tester.${Date.now()}@sentinel.com`;
+    const offTimestamp = Date.now();
+    const offEmail = `off.tester.${offTimestamp}@sentinel.com`;
+    const offName = `Geofence Off Tester ${offTimestamp}`;
     const offEmpRes = await req('POST', '/api/employees', {
-      name: 'Geofence Off Tester',
+      name: offName,
       email: offEmail,
       department_id: testDeptId,
       designation: 'Off QA',
@@ -459,7 +461,7 @@ async function run() {
     const offSucceeded = (offCheckin.s === 201 || offCheckin.s === 200);
     const alertsOff = await req('GET', '/api/security/alerts', null, adminToken);
     const hasOffAlert = Array.isArray(alertsOff.b) && alertsOff.b.some(a =>
-      (a.employee_email === offEmail || a.employee_name === 'Geofence Off Tester') &&
+      (a.employee_email === offEmail || a.employee_name === offName) &&
       a.alert_type === 'geofence_violation'
     );
     log(offSucceeded && !hasOffAlert, 'Off mode: outside-radius check-in succeeds, no SecurityAlert created',

@@ -108,6 +108,7 @@
 <div id="sidebar-container" class="hidden md:block"></div>
 <!-- Main Content Area -->
 <main class="flex-1 p-margin-mobile md:p-margin-desktop w-full max-w-container-max mx-auto overflow-x-hidden">
+<div id="admin-view-wrapper">
 <!-- Header -->
 <div class="flex items-center justify-between mb-lg py-sm border-b border-border">
   <div class="flex items-center gap-md bg-surface-variant px-md py-sm rounded-lg w-96">
@@ -219,6 +220,10 @@
 <span class="material-symbols-outlined text-[18px]">refresh</span>
     Regenerate All Security Keys
 </button>
+<button id="btn-launch-kiosk-view" class="w-full flex items-center justify-center gap-sm border border-border text-on-surface font-label-md text-label-md py-sm rounded-lg hover:bg-surface-variant transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">open_in_new</span>
+    Launch Kiosk Display Mode
+</button>
 </div>
 </section>
 <!-- Registered Kiosks Overview Card -->
@@ -270,6 +275,77 @@
 </section>
 </div>
 </div>
+</div><!-- end admin-view-wrapper -->
+
+<!-- Kiosk Dedicated Display Area (Active when kiosk_key is present) -->
+<div id="kiosk-view-wrapper" class="hidden w-full min-h-[85vh] flex flex-col items-center justify-center py-6 px-4">
+  <div class="w-full max-w-xl bg-surface border border-border rounded-2xl shadow-xl overflow-hidden flex flex-col">
+    <!-- Kiosk Header -->
+    <div class="p-6 border-b border-border bg-surface-bright flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
+          <span class="material-symbols-outlined text-2xl">qr_code_scanner</span>
+        </div>
+        <div>
+          <h1 class="font-headline-sm text-lg font-bold text-on-surface">Sentinel Attendance Kiosk</h1>
+          <p id="kiosk-dept-name" class="font-body-sm text-xs text-on-surface-variant">Connecting to department...</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 px-3 py-1 bg-success/10 text-success rounded-full border border-success/20">
+          <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+          <span class="font-label-sm text-xs font-semibold uppercase tracking-wider">Live Display</span>
+        </div>
+        <button id="btn-kiosk-fullscreen" type="button" title="Toggle Fullscreen" class="p-2 hover:bg-surface-variant rounded-lg text-on-surface-variant transition-colors cursor-pointer">
+          <span class="material-symbols-outlined text-xl">fullscreen</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Kiosk Main Content -->
+    <div class="p-8 flex flex-col items-center justify-center bg-surface">
+      <!-- QR Image & Pulse Ring Box -->
+      <div id="kiosk-qr-container" class="relative flex items-center justify-center p-6 bg-surface-container-low border border-border rounded-2xl mb-6 shadow-sm min-h-[280px] min-w-[280px]">
+        <div id="kiosk-pulse-ring" class="absolute inset-0 border-4 border-secondary opacity-20 rounded-2xl animate-pulse"></div>
+        <img id="kiosk-qr-image" class="w-60 h-60 object-contain rounded-lg transition-all duration-300 shadow-md" alt="Live Kiosk Attendance QR Code" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='50' x='50' text-anchor='middle' fill='%23666'%3ELoading...%3C/text%3E%3C/svg%3E">
+
+        <!-- Error State Box (hidden by default) -->
+        <div id="kiosk-error-box" class="hidden absolute inset-4 bg-surface border border-error/30 rounded-xl p-6 flex flex-col items-center justify-center text-center">
+          <span class="material-symbols-outlined text-error text-4xl mb-2">lock</span>
+          <h2 class="font-headline-sm text-base font-bold text-error mb-1">Access Restricted</h2>
+          <p id="kiosk-error-message" class="font-body-sm text-xs text-on-surface-variant max-w-xs leading-relaxed">Invalid or missing kiosk key. Contact administrator.</p>
+        </div>
+      </div>
+
+      <!-- Live Expiry & Rotation Info -->
+      <div class="flex flex-col items-center gap-1 mb-6 text-center">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary text-sm">schedule</span>
+          <p id="kiosk-countdown-text" class="font-headline-sm text-base font-bold text-secondary">Checking session...</p>
+        </div>
+        <p id="kiosk-session-text" class="font-label-sm text-xs font-mono text-on-surface-variant">Session: Initializing</p>
+      </div>
+
+      <!-- Instructions Box -->
+      <div class="w-full bg-surface-bright border border-border rounded-xl p-4 flex items-start gap-3">
+        <span class="material-symbols-outlined text-secondary text-xl mt-0.5">smartphone</span>
+        <div class="text-left">
+          <p class="font-body-md text-xs font-semibold text-on-surface">How to Check In / Check Out</p>
+          <p class="font-body-sm text-[11px] text-on-surface-variant">Open the Sentinel Mobile App, align camera with the QR code on this screen. Codes rotate automatically for tamper resistance.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kiosk Footer Note -->
+    <div class="px-6 py-3 border-t border-border bg-surface-container-low flex items-center justify-between text-[11px] text-on-surface-variant font-label-sm">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[14px] text-success">security</span>
+        <span>Low-Privilege Screen • Zero Admin JWT</span>
+      </div>
+      <span class="text-[10px] text-on-surface-variant/70 font-mono">HMAC-SHA256</span>
+    </div>
+  </div>
+</div>
 </main>
 
 <!-- Add Kiosk Modal -->
@@ -305,20 +381,15 @@
   </div>
 </div>
 
-<script src="/Templates/shared/auth.js"></script>
-<script src="/Templates/shared/sidebar.js"></script>
 <script>
 (function() {
   const API_BASE = window.location.origin;
-  let qrPollMs = 5000;
-  let qrPollIntervalTimer = null;
-  let scansPollIntervalTimer = null;
+  const urlParams = new URLSearchParams(window.location.search);
+  const kioskKey = urlParams.get('kiosk_key');
+  const departmentId = urlParams.get('department_id');
+  const isKioskMode = Boolean(kioskKey);
 
-  if (!localStorage.getItem('token')) {
-    clearAuthAndRedirect();
-  }
-
-  // Toast System
+  // Toast System (Shared helper for notifications)
   function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -337,171 +408,426 @@
     }, 3500);
   }
 
-  // DOM Elements
-  const qrImage          = document.getElementById('qr-code-image');
-  const qrExpiryText     = document.getElementById('qr-expiry-text');
-  const qrCountdown      = document.getElementById('qr-countdown');
-  const scansTbody       = document.getElementById('recent-scans-tbody');
-  const scanBadge        = document.getElementById('scan-count-badge');
-  const intervalSlider   = document.getElementById('interval-slider');
-  const intervalDisplay  = document.getElementById('interval-display');
-  const toggleGeofence   = document.getElementById('toggle-geofence');
-  const toggleCrypto     = document.getElementById('toggle-crypto');
-  const btnAddKiosk      = document.getElementById('btn-add-kiosk');
-  const btnRegenKeys     = document.getElementById('btn-regenerate-keys');
-  const addKioskModal    = document.getElementById('add-kiosk-modal');
-  const addKioskForm     = document.getElementById('add-kiosk-form');
-  const closeKioskModal  = document.getElementById('close-kiosk-modal-btn');
-  const cancelKioskModal = document.getElementById('cancel-kiosk-modal-btn');
-  const kioskNameInput   = document.getElementById('kiosk-name-input');
-  const kioskLocInput    = document.getElementById('kiosk-location-input');
-  const kioskIpInput     = document.getElementById('kiosk-ip-input');
-  const kiosksContainer  = document.getElementById('kiosks-list-container');
-  const kioskCountBadge  = document.getElementById('kiosk-count-badge');
-  const btnNotifications = document.getElementById('btn-notifications');
-  const notifDropdown    = document.getElementById('notifications-dropdown');
-  const searchInput      = document.getElementById('kiosk-search-input');
+  if (isKioskMode) {
+    // ══════════════════════════════════════════════════════════════════════════
+    // KIOSK DISPLAY MODE (Low-privilege, physical terminal screen)
+    // - NO admin JWT required or stored in localStorage
+    // - NEVER loads auth.js (preventing automatic redirects)
+    // - Completely hides admin navigation, sidebars, settings, and logs
+    // ══════════════════════════════════════════════════════════════════════════
+    const sidebar = document.getElementById('sidebar-container');
+    if (sidebar) sidebar.remove();
+    const adminWrapper = document.getElementById('admin-view-wrapper');
+    if (adminWrapper) adminWrapper.classList.add('hidden');
+    const kioskWrapper = document.getElementById('kiosk-view-wrapper');
+    if (kioskWrapper) kioskWrapper.classList.remove('hidden');
 
-  let currentExpiresAt = null;
-  let countdownTimer   = null;
-  let rawScansData     = [];
-
-  // Default registered kiosks
-  let kiosks = JSON.parse(localStorage.getItem('sentinel_kiosks') || 'null') || [
-    { id: 1, name: 'Main Lobby Terminal #1', location: 'Ground Floor Lobby', ip: '192.168.1.10', status: 'Online' },
-    { id: 2, name: 'North Gate Kiosk #2', location: 'Building B - Gate 2', ip: '192.168.1.11', status: 'Online' }
-  ];
-
-  function renderKiosks() {
-    if (!kiosksContainer) return;
-    if (kioskCountBadge) kioskCountBadge.textContent = `${kiosks.length} Active`;
-    kiosksContainer.innerHTML = kiosks.map(k => `
-      <div class="flex items-center justify-between p-xs bg-surface-container-low rounded-lg border border-border">
-        <div class="flex items-center gap-xs">
-          <span class="w-2 h-2 rounded-full bg-success"></span>
-          <div>
-            <p class="text-xs font-semibold text-on-surface">${k.name}</p>
-            <p class="text-[11px] text-on-surface-variant">${k.location} • ${k.ip || 'DHCP'}</p>
-          </div>
-        </div>
-        <span class="text-[10px] bg-success/10 text-[#047857] px-1.5 py-0.5 rounded font-label-sm">${k.status}</span>
-      </div>
-    `).join('');
-    localStorage.setItem('sentinel_kiosks', JSON.stringify(kiosks));
-  }
-  renderKiosks();
-
-  // ── Slider Display & Interval Update ──────────────────────
-  if (intervalSlider && intervalDisplay) {
-    intervalDisplay.textContent = `${intervalSlider.value}s`;
-
-    intervalSlider.addEventListener('input', (e) => {
-      const val = parseInt(e.target.value, 10);
-      intervalDisplay.textContent = `${val}s`;
-    });
-
-    intervalSlider.addEventListener('change', async (e) => {
-      const val = parseInt(e.target.value, 10);
-      qrPollMs = val * 1000;
-      
-      // Reset poll timer with new interval
-      if (qrPollIntervalTimer) clearInterval(qrPollIntervalTimer);
-      qrPollIntervalTimer = setInterval(fetchCurrentQR, qrPollMs);
-
-      try {
-        await fetch(`${API_BASE}/api/qr/settings`, {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify({ intervalSeconds: val })
-        });
-      } catch (err) {
-        console.error('[Settings] Error saving interval:', err);
+    runKioskMode(departmentId, kioskKey);
+  } else {
+    // ══════════════════════════════════════════════════════════════════════════
+    // ADMIN MANAGEMENT MODE (Protected administrative session)
+    // - Dynamically loads auth.js and sidebar.js
+    // - Validates JWT in localStorage
+    // - Provides full admin management UI
+    // ══════════════════════════════════════════════════════════════════════════
+    const authScript = document.createElement('script');
+    authScript.src = '/Templates/shared/auth.js';
+    authScript.onload = () => {
+      if (!localStorage.getItem('token')) {
+        if (typeof clearAuthAndRedirect === 'function') {
+          clearAuthAndRedirect();
+        } else {
+          window.location.href = '/Templates/Login_Page.html';
+        }
+        return;
       }
+      runAdminMode();
+    };
+    document.body.appendChild(authScript);
 
-      showToast(`Regeneration interval set to ${val} seconds.`);
-    });
+    const sidebarScript = document.createElement('script');
+    sidebarScript.src = '/Templates/shared/sidebar.js';
+    document.body.appendChild(sidebarScript);
   }
 
-  // ── Toggles ───────────────────────────────────────────────
-  if (toggleGeofence) {
-    toggleGeofence.addEventListener('change', async () => {
-      const enabled = toggleGeofence.checked;
-      try {
-        await fetch(`${API_BASE}/api/qr/settings`, {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify({ geofenceEnabled: enabled })
+  // ──────────────────────────────────────────────────────────────────────────
+  // KIOSK MODE IMPLEMENTATION
+  // ──────────────────────────────────────────────────────────────────────────
+  function runKioskMode(deptId, key) {
+    const kioskImg = document.getElementById('kiosk-qr-image');
+    const kioskErrorBox = document.getElementById('kiosk-error-box');
+    const kioskErrorMsg = document.getElementById('kiosk-error-message');
+    const kioskCountdown = document.getElementById('kiosk-countdown-text');
+    const kioskSession = document.getElementById('kiosk-session-text');
+    const kioskDeptName = document.getElementById('kiosk-dept-name');
+    const btnFullscreen = document.getElementById('btn-kiosk-fullscreen');
+
+    if (deptId && kioskDeptName) {
+      kioskDeptName.textContent = `Department ID: ${deptId}`;
+    } else if (kioskDeptName) {
+      kioskDeptName.textContent = 'Department ID not specified';
+    }
+
+    let currentExpiresAt = null;
+    let countdownTimer = null;
+    let pollTimer = null;
+
+    function showError(message) {
+      if (kioskImg) {
+        kioskImg.classList.add('hidden');
+        kioskImg.src = '';
+      }
+      if (kioskErrorBox && kioskErrorMsg) {
+        kioskErrorMsg.textContent = message;
+        kioskErrorBox.classList.remove('hidden');
+      }
+      if (kioskCountdown) kioskCountdown.textContent = 'Display Inactive';
+      if (kioskSession) kioskSession.textContent = 'Session: Unavailable';
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+    }
+
+    function showQR(data) {
+      if (kioskErrorBox) kioskErrorBox.classList.add('hidden');
+      if (kioskImg) {
+        kioskImg.classList.remove('hidden');
+        const qrPayload = JSON.stringify({
+          id: data.qr_session_id,
+          code: data.code_value,
+          sig: data.signature,
         });
-      } catch (err) {}
-      showToast(`Geolocation enforcement ${enabled ? 'enabled (50m radius)' : 'disabled'}.`);
-    });
-  }
+        kioskImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrPayload)}`;
+      }
+      if (kioskSession) {
+        kioskSession.textContent = `Session: ${(data.qr_session_id || '').slice(-8).toUpperCase()}`;
+      }
+      currentExpiresAt = new Date(data.expires_at);
+      startCountdown();
+    }
 
-  if (toggleCrypto) {
-    toggleCrypto.addEventListener('change', async () => {
-      const enabled = toggleCrypto.checked;
+    function startCountdown() {
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        if (!currentExpiresAt) return;
+        const remaining = Math.max(0, Math.ceil((currentExpiresAt - Date.now()) / 1000));
+        if (kioskCountdown) {
+          kioskCountdown.textContent = remaining > 0 ? `Rotating in ${remaining}s` : 'Refreshing...';
+        }
+        if (remaining <= 0) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+        }
+      }, 250);
+    }
+
+    async function fetchKioskQR() {
+      if (!deptId) {
+        showError('Configuration Error: department_id query parameter is required.');
+        return;
+      }
       try {
-        await fetch(`${API_BASE}/api/qr/settings`, {
-          method: 'POST',
-          headers: authHeaders(),
-          body: JSON.stringify({ cryptoSigningEnabled: enabled })
-        });
-      } catch (err) {}
-      showToast(`Cryptographic signing ${enabled ? 'enabled (HMAC-SHA256)' : 'disabled'}.`);
-    });
-  }
-
-  // ── Kiosk Action: Add New Kiosk Modal ─────────────────────
-  if (btnAddKiosk && addKioskModal) {
-    btnAddKiosk.addEventListener('click', () => {
-      addKioskModal.classList.remove('hidden');
-    });
-  }
-
-  function hideModal() {
-    if (addKioskModal) addKioskModal.classList.add('hidden');
-    if (addKioskForm) addKioskForm.reset();
-  }
-
-  if (closeKioskModal) closeKioskModal.addEventListener('click', hideModal);
-  if (cancelKioskModal) cancelKioskModal.addEventListener('click', hideModal);
-
-  if (addKioskForm) {
-    addKioskForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const name = kioskNameInput.value.trim();
-      const location = kioskLocInput.value.trim();
-      const ip = kioskIpInput.value.trim() || '192.168.1.' + Math.floor(Math.random() * 200 + 20);
-
-      if (!name || !location) return;
-
-      const newKiosk = {
-        id: Date.now(),
-        name,
-        location,
-        ip,
-        status: 'Online'
-      };
-
-      kiosks.push(newKiosk);
-      renderKiosks();
-      hideModal();
-      showToast(`New Kiosk "${name}" registered successfully!`);
-    });
-  }
-
-  // ── Kiosk Action: Regenerate Security Keys ────────────────
-  if (btnRegenKeys) {
-    btnRegenKeys.addEventListener('click', async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/qr/regenerate-keys`, {
-          method: 'POST',
-          headers: authHeaders()
-        });
-        if (res.status === 401) { clearAuthAndRedirect(); return; }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const res = await fetch(`${API_BASE}/api/qr/kiosk-view?department_id=${encodeURIComponent(deptId)}&kiosk_key=${encodeURIComponent(key)}`);
+        if (res.status === 401) {
+          showError('Unauthorized Kiosk Display: Invalid or missing kiosk key. This screen is not authorized to display QR codes.');
+          return;
+        }
+        if (res.status === 400) {
+          const errData = await res.json().catch(() => ({}));
+          showError(`Configuration Error: ${errData.error || 'department_id is required'}`);
+          return;
+        }
+        if (res.status === 429) {
+          showError('Rate Limit Exceeded: Too many kiosk display requests. Please wait.');
+          return;
+        }
+        if (!res.ok) {
+          showError(`HTTP ${res.status}: Failed to retrieve kiosk QR session.`);
+          return;
+        }
 
         const data = await res.json();
+        showQR(data);
+      } catch (err) {
+        console.error('[Kiosk Display] Polling error:', err.message);
+        showError('Network error: Unable to reach Sentinel attendance server.');
+      }
+    }
+
+    if (btnFullscreen) {
+      btnFullscreen.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      });
+    }
+
+    fetchKioskQR();
+    pollTimer = setInterval(fetchKioskQR, 5000);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // ADMIN MODE IMPLEMENTATION
+  // ──────────────────────────────────────────────────────────────────────────
+  function runAdminMode() {
+    let qrPollMs = 5000;
+    let qrPollIntervalTimer = null;
+    let scansPollIntervalTimer = null;
+
+    // DOM Elements
+    const qrImage          = document.getElementById('qr-code-image');
+    const qrExpiryText     = document.getElementById('qr-expiry-text');
+    const qrCountdown      = document.getElementById('qr-countdown');
+    const scansTbody       = document.getElementById('recent-scans-tbody');
+    const scanBadge        = document.getElementById('scan-count-badge');
+    const intervalSlider   = document.getElementById('interval-slider');
+    const intervalDisplay  = document.getElementById('interval-display');
+    const toggleGeofence   = document.getElementById('toggle-geofence');
+    const toggleCrypto     = document.getElementById('toggle-crypto');
+    const btnAddKiosk      = document.getElementById('btn-add-kiosk');
+    const btnRegenKeys     = document.getElementById('btn-regenerate-keys');
+    const btnLaunchKiosk   = document.getElementById('btn-launch-kiosk-view');
+    const addKioskModal    = document.getElementById('add-kiosk-modal');
+    const addKioskForm     = document.getElementById('add-kiosk-form');
+    const closeKioskModal  = document.getElementById('close-kiosk-modal-btn');
+    const cancelKioskModal = document.getElementById('cancel-kiosk-modal-btn');
+    const kioskNameInput   = document.getElementById('kiosk-name-input');
+    const kioskLocInput    = document.getElementById('kiosk-location-input');
+    const kioskIpInput     = document.getElementById('kiosk-ip-input');
+    const kiosksContainer  = document.getElementById('kiosks-list-container');
+    const kioskCountBadge  = document.getElementById('kiosk-count-badge');
+    const btnNotifications = document.getElementById('btn-notifications');
+    const notifDropdown    = document.getElementById('notifications-dropdown');
+    const searchInput      = document.getElementById('kiosk-search-input');
+
+    let currentExpiresAt = null;
+    let countdownTimer   = null;
+    let rawScansData     = [];
+    let currentAdminDeptId = urlParams.get('department_id');
+
+    async function resolveAdminDepartment() {
+      if (currentAdminDeptId) return currentAdminDeptId;
+      try {
+        const res = await fetch(`${API_BASE}/api/departments`, { headers: authHeaders() });
+        if (res.ok) {
+          const depts = await res.json();
+          if (Array.isArray(depts) && depts.length > 0) {
+            currentAdminDeptId = depts[0]._id || depts[0].id;
+          }
+        }
+      } catch (_) {}
+      return currentAdminDeptId;
+    }
+
+    // Default registered kiosks
+    let kiosks = JSON.parse(localStorage.getItem('sentinel_kiosks') || 'null') || [
+      { id: 1, name: 'Main Lobby Terminal #1', location: 'Ground Floor Lobby', ip: '192.168.1.10', status: 'Online' },
+      { id: 2, name: 'North Gate Kiosk #2', location: 'Building B - Gate 2', ip: '192.168.1.11', status: 'Online' }
+    ];
+
+    function renderKiosks() {
+      if (!kiosksContainer) return;
+      if (kioskCountBadge) kioskCountBadge.textContent = `${kiosks.length} Active`;
+      kiosksContainer.innerHTML = kiosks.map(k => `
+        <div class="flex items-center justify-between p-xs bg-surface-container-low rounded-lg border border-border">
+          <div class="flex items-center gap-xs">
+            <span class="w-2 h-2 rounded-full bg-success"></span>
+            <div>
+              <p class="text-xs font-semibold text-on-surface">${k.name}</p>
+              <p class="text-[11px] text-on-surface-variant">${k.location} • ${k.ip || 'DHCP'}</p>
+            </div>
+          </div>
+          <span class="text-[10px] bg-success/10 text-[#047857] px-1.5 py-0.5 rounded font-label-sm">${k.status}</span>
+        </div>
+      `).join('');
+      localStorage.setItem('sentinel_kiosks', JSON.stringify(kiosks));
+    }
+    renderKiosks();
+
+    // ── Slider Display & Interval Update ──────────────────────
+    if (intervalSlider && intervalDisplay) {
+      intervalDisplay.textContent = `${intervalSlider.value}s`;
+
+      intervalSlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        intervalDisplay.textContent = `${val}s`;
+      });
+
+      intervalSlider.addEventListener('change', async (e) => {
+        const val = parseInt(e.target.value, 10);
+        qrPollMs = val * 1000;
+        
+        if (qrPollIntervalTimer) clearInterval(qrPollIntervalTimer);
+        qrPollIntervalTimer = setInterval(fetchCurrentQR, qrPollMs);
+
+        try {
+          await fetch(`${API_BASE}/api/qr/settings`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ intervalSeconds: val })
+          });
+        } catch (err) {
+          console.error('[Settings] Error saving interval:', err);
+        }
+
+        showToast(`Regeneration interval set to ${val} seconds.`);
+      });
+    }
+
+    // ── Toggles ───────────────────────────────────────────────
+    if (toggleGeofence) {
+      toggleGeofence.addEventListener('change', async () => {
+        const enabled = toggleGeofence.checked;
+        try {
+          await fetch(`${API_BASE}/api/qr/settings`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ geofenceEnabled: enabled })
+          });
+        } catch (err) {}
+        showToast(`Geolocation enforcement ${enabled ? 'enabled (50m radius)' : 'disabled'}.`);
+      });
+    }
+
+    if (toggleCrypto) {
+      toggleCrypto.addEventListener('change', async () => {
+        const enabled = toggleCrypto.checked;
+        try {
+          await fetch(`${API_BASE}/api/qr/settings`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ cryptoSigningEnabled: enabled })
+          });
+        } catch (err) {}
+        showToast(`Cryptographic signing ${enabled ? 'enabled (HMAC-SHA256)' : 'disabled'}.`);
+      });
+    }
+
+    // ── Kiosk Action: Add New Kiosk Modal ─────────────────────
+    if (btnAddKiosk && addKioskModal) {
+      btnAddKiosk.addEventListener('click', () => {
+        addKioskModal.classList.remove('hidden');
+      });
+    }
+
+    function hideModal() {
+      if (addKioskModal) addKioskModal.classList.add('hidden');
+      if (addKioskForm) addKioskForm.reset();
+    }
+
+    if (closeKioskModal) closeKioskModal.addEventListener('click', hideModal);
+    if (cancelKioskModal) cancelKioskModal.addEventListener('click', hideModal);
+
+    if (addKioskForm) {
+      addKioskForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = kioskNameInput.value.trim();
+        const location = kioskLocInput.value.trim();
+        const ip = kioskIpInput.value.trim() || '192.168.1.' + Math.floor(Math.random() * 200 + 20);
+
+        if (!name || !location) return;
+
+        const newKiosk = {
+          id: Date.now(),
+          name,
+          location,
+          ip,
+          status: 'Online'
+        };
+
+        kiosks.push(newKiosk);
+        renderKiosks();
+        hideModal();
+        showToast(`New Kiosk "${name}" registered successfully!`);
+      });
+    }
+
+    // ── Kiosk Action: Launch Kiosk Display View ───────────────
+    if (btnLaunchKiosk) {
+      btnLaunchKiosk.addEventListener('click', async () => {
+        const deptId = await resolveAdminDepartment();
+        if (!deptId) {
+          showToast('Please specify a department_id first.', 'warning');
+          return;
+        }
+        const key = prompt('Enter KIOSK_DISPLAY_KEY to launch kiosk display:', '');
+        if (!key) return;
+
+        const kioskUrl = `${API_BASE}/Templates/QR_Generation_Page.html?department_id=${encodeURIComponent(deptId)}&kiosk_key=${encodeURIComponent(key)}`;
+        window.open(kioskUrl, '_blank');
+      });
+    }
+
+    // ── Kiosk Action: Regenerate Security Keys ────────────────
+    if (btnRegenKeys) {
+      btnRegenKeys.addEventListener('click', async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/qr/regenerate-keys`, {
+            method: 'POST',
+            headers: authHeaders()
+          });
+          if (res.status === 401) { clearAuthAndRedirect(); return; }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+          const data = await res.json();
+          const qrData = JSON.stringify({
+            id: data.qr_session_id,
+            code: data.code_value,
+            sig: data.signature,
+          });
+          qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
+
+          currentExpiresAt = new Date(data.expires_at);
+          qrExpiryText.textContent = `Session: ${data.qr_session_id.slice(-8).toUpperCase()}`;
+          startCountdown();
+
+          showToast('All security keys regenerated successfully! QR session refreshed.');
+        } catch (err) {
+          console.error('[Regen Keys] Error:', err.message);
+          showToast('Failed to regenerate security keys.', 'error');
+        }
+      });
+    }
+
+    // ── Header Notifications Dropdown ─────────────────────────
+    if (btnNotifications && notifDropdown) {
+      btnNotifications.addEventListener('click', (e) => {
+        e.stopPropagation();
+        notifDropdown.classList.toggle('hidden');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!notifDropdown.contains(e.target) && !btnNotifications.contains(e.target)) {
+          notifDropdown.classList.add('hidden');
+        }
+      });
+    }
+
+    // ── Table Search Filtering ────────────────────────────────
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase().trim();
+        renderScansTable(rawScansData.filter(s => {
+          return (s.employee_name || '').toLowerCase().includes(q) ||
+                 (s.status || '').toLowerCase().includes(q) ||
+                 (s.check_in_time || '').toLowerCase().includes(q);
+        }));
+      });
+    }
+
+    // ── QR Polling ────────────────────────────────────────────
+    async function fetchCurrentQR() {
+      try {
+        const deptId = await resolveAdminDepartment();
+        const url = deptId ? `${API_BASE}/api/qr/current?department_id=${encodeURIComponent(deptId)}` : `${API_BASE}/api/qr/current`;
+        const res = await fetch(url, { headers: authHeaders() });
+        if (res.status === 401) { clearAuthAndRedirect(); return; }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
         const qrData = JSON.stringify({
           id: data.qr_session_id,
           code: data.code_value,
@@ -511,155 +837,103 @@
 
         currentExpiresAt = new Date(data.expires_at);
         qrExpiryText.textContent = `Session: ${data.qr_session_id.slice(-8).toUpperCase()}`;
+
         startCountdown();
-
-        showToast('All security keys regenerated successfully! QR session refreshed.');
       } catch (err) {
-        console.error('[Regen Keys] Error:', err.message);
-        showToast('Failed to regenerate security keys.', 'error');
+        console.error('[QR Poll] Error:', err.message);
+        qrExpiryText.textContent = 'Error loading QR code';
+        qrCountdown.textContent = '';
       }
-    });
-  }
-
-  // ── Header Notifications Dropdown ─────────────────────────
-  if (btnNotifications && notifDropdown) {
-    btnNotifications.addEventListener('click', (e) => {
-      e.stopPropagation();
-      notifDropdown.classList.toggle('hidden');
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!notifDropdown.contains(e.target) && !btnNotifications.contains(e.target)) {
-        notifDropdown.classList.add('hidden');
-      }
-    });
-  }
-
-  // ── Table Search Filtering ────────────────────────────────
-  if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      const q = e.target.value.toLowerCase().trim();
-      renderScansTable(rawScansData.filter(s => {
-        return (s.employee_name || '').toLowerCase().includes(q) ||
-               (s.status || '').toLowerCase().includes(q) ||
-               (s.check_in_time || '').toLowerCase().includes(q);
-      }));
-    });
-  }
-
-  // ── QR Polling ────────────────────────────────────────────
-  async function fetchCurrentQR() {
-    try {
-      const res = await fetch(`${API_BASE}/api/qr/current`, { headers: authHeaders() });
-      if (res.status === 401) { clearAuthAndRedirect(); return; }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      const qrData = JSON.stringify({
-        id: data.qr_session_id,
-        code: data.code_value,
-        sig: data.signature,
-      });
-      qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
-
-      currentExpiresAt = new Date(data.expires_at);
-      qrExpiryText.textContent = `Session: ${data.qr_session_id.slice(-8).toUpperCase()}`;
-
-      startCountdown();
-    } catch (err) {
-      console.error('[QR Poll] Error:', err.message);
-      qrExpiryText.textContent = 'Error loading QR code';
-      qrCountdown.textContent = '';
-    }
-  }
-
-  function startCountdown() {
-    if (countdownTimer) clearInterval(countdownTimer);
-    countdownTimer = setInterval(() => {
-      if (!currentExpiresAt) return;
-      const remaining = Math.max(0, Math.ceil((currentExpiresAt - Date.now()) / 1000));
-      qrCountdown.textContent = remaining > 0 ? `Expires in ${remaining}s` : 'Refreshing...';
-      if (remaining <= 0) {
-        clearInterval(countdownTimer);
-        countdownTimer = null;
-      }
-    }, 250);
-  }
-
-  // ── Recent Scans Polling & Render ─────────────────────────
-  function renderScansTable(scans) {
-    scanBadge.textContent = `${scans.length} scan${scans.length !== 1 ? 's' : ''}`;
-
-    if (scans.length === 0) {
-      scansTbody.innerHTML = '<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">No recent scans found</td></tr>';
-      return;
     }
 
-    scansTbody.innerHTML = scans.map((s, i) => {
-      const isCheckout = !!s.check_out_time;
-      const type = isCheckout ? 'Check-out' : 'Check-in';
-      const time = new Date(isCheckout ? s.check_out_time : s.check_in_time);
-      const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const statusColors = {
-        'on-time': 'bg-success/10 text-[#047857]',
-        'late': 'bg-warning/10 text-[#B45309]',
-        'early-leave': 'bg-secondary/10 text-secondary',
-        'incomplete': 'bg-surface-variant text-on-surface-variant',
-      };
-      const sc = statusColors[s.status] || 'bg-surface-variant text-on-surface-variant';
-      const zebra = i % 2 === 1 ? 'bg-[#F8FAFC]' : '';
-      return `<tr class="${zebra} hover:bg-surface-variant transition-colors">
-        <td class="px-lg py-md text-on-surface font-medium">${s.employee_name}</td>
-        <td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">${type}</td>
-        <td class="px-lg py-md"><span class="inline-flex items-center gap-xs px-2 py-1 rounded-full font-label-md text-[12px] ${sc}"><span class="w-2 h-2 rounded-full" style="background:currentColor"></span>${s.status || 'n/a'}</span></td>
-        <td class="px-lg py-md text-on-surface-variant">${timeStr}</td>
-      </tr>`;
-    }).join('');
-  }
-
-  async function fetchRecentScans() {
-    try {
-      const res = await fetch(`${API_BASE}/api/qr/recent-scans`, { headers: authHeaders() });
-      if (res.status === 401) { clearAuthAndRedirect(); return; }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      rawScansData = await res.json();
-      const q = (searchInput?.value || '').toLowerCase().trim();
-      if (q) {
-        renderScansTable(rawScansData.filter(s => (s.employee_name || '').toLowerCase().includes(q)));
-      } else {
-        renderScansTable(rawScansData);
-      }
-    } catch (err) {
-      console.error('[Scans Poll] Error:', err.message);
+    function startCountdown() {
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        if (!currentExpiresAt) return;
+        const remaining = Math.max(0, Math.ceil((currentExpiresAt - Date.now()) / 1000));
+        qrCountdown.textContent = remaining > 0 ? `Expires in ${remaining}s` : 'Refreshing...';
+        if (remaining <= 0) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+        }
+      }, 250);
     }
-  }
 
-  // ── Fetch Server Settings ─────────────────────────────────
-  async function fetchSettings() {
-    try {
-      const res = await fetch(`${API_BASE}/api/qr/settings`, { headers: authHeaders() });
-      if (res.ok) {
-        const s = await res.json();
-        if (typeof s.intervalSeconds === 'number' && intervalSlider && intervalDisplay) {
-          intervalSlider.value = s.intervalSeconds;
-          intervalDisplay.textContent = `${s.intervalSeconds}s`;
-        }
-        if (typeof s.geofenceEnabled === 'boolean' && toggleGeofence) {
-          toggleGeofence.checked = s.geofenceEnabled;
-        }
-        if (typeof s.cryptoSigningEnabled === 'boolean' && toggleCrypto) {
-          toggleCrypto.checked = s.cryptoSigningEnabled;
-        }
+    // ── Recent Scans Polling & Render ─────────────────────────
+    function renderScansTable(scans) {
+      scanBadge.textContent = `${scans.length} scan${scans.length !== 1 ? 's' : ''}`;
+
+      if (scans.length === 0) {
+        scansTbody.innerHTML = '<tr><td colspan="4" class="px-lg py-md text-center text-on-surface-variant">No recent scans found</td></tr>';
+        return;
       }
-    } catch (err) {}
-  }
 
-  // ── Boot ──────────────────────────────────────────────────
-  fetchSettings();
-  fetchCurrentQR();
-  fetchRecentScans();
-  qrPollIntervalTimer = setInterval(fetchCurrentQR, qrPollMs);
-  scansPollIntervalTimer = setInterval(fetchRecentScans, qrPollMs);
+      scansTbody.innerHTML = scans.map((s, i) => {
+        const isCheckout = !!s.check_out_time;
+        const type = isCheckout ? 'Check-out' : 'Check-in';
+        const time = new Date(isCheckout ? s.check_out_time : s.check_in_time);
+        const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const statusColors = {
+          'on-time': 'bg-success/10 text-[#047857]',
+          'late': 'bg-warning/10 text-[#B45309]',
+          'early-leave': 'bg-secondary/10 text-secondary',
+          'incomplete': 'bg-surface-variant text-on-surface-variant',
+        };
+        const sc = statusColors[s.status] || 'bg-surface-variant text-on-surface-variant';
+        const zebra = i % 2 === 1 ? 'bg-[#F8FAFC]' : '';
+        return `<tr class="${zebra} hover:bg-surface-variant transition-colors">
+          <td class="px-lg py-md text-on-surface font-medium">${s.employee_name}</td>
+          <td class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant">${type}</td>
+          <td class="px-lg py-md"><span class="inline-flex items-center gap-xs px-2 py-1 rounded-full font-label-md text-[12px] ${sc}"><span class="w-2 h-2 rounded-full" style="background:currentColor"></span>${s.status || 'n/a'}</span></td>
+          <td class="px-lg py-md text-on-surface-variant">${timeStr}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function fetchRecentScans() {
+      try {
+        const res = await fetch(`${API_BASE}/api/qr/recent-scans`, { headers: authHeaders() });
+        if (res.status === 401) { clearAuthAndRedirect(); return; }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        rawScansData = await res.json();
+        const q = (searchInput?.value || '').toLowerCase().trim();
+        if (q) {
+          renderScansTable(rawScansData.filter(s => (s.employee_name || '').toLowerCase().includes(q)));
+        } else {
+          renderScansTable(rawScansData);
+        }
+      } catch (err) {
+        console.error('[Scans Poll] Error:', err.message);
+      }
+    }
+
+    // ── Fetch Server Settings ─────────────────────────────────
+    async function fetchSettings() {
+      try {
+        const res = await fetch(`${API_BASE}/api/qr/settings`, { headers: authHeaders() });
+        if (res.ok) {
+          const s = await res.json();
+          if (typeof s.intervalSeconds === 'number' && intervalSlider && intervalDisplay) {
+            intervalSlider.value = s.intervalSeconds;
+            intervalDisplay.textContent = `${s.intervalSeconds}s`;
+          }
+          if (typeof s.geofenceEnabled === 'boolean' && toggleGeofence) {
+            toggleGeofence.checked = s.geofenceEnabled;
+          }
+          if (typeof s.cryptoSigningEnabled === 'boolean' && toggleCrypto) {
+            toggleCrypto.checked = s.cryptoSigningEnabled;
+          }
+        }
+      } catch (err) {}
+    }
+
+    // ── Boot Admin ────────────────────────────────────────────
+    fetchSettings();
+    fetchCurrentQR();
+    fetchRecentScans();
+    qrPollIntervalTimer = setInterval(fetchCurrentQR, qrPollMs);
+    scansPollIntervalTimer = setInterval(fetchRecentScans, qrPollMs);
+  }
 })();
 </script>
 
