@@ -20,7 +20,20 @@ async function getCurrentQR(req, res) {
       return res.status(400).json({ error: 'department_id query parameter is required.' });
     }
 
+    if (qrService.getSettings().qrGenerationEnabled === false) {
+      return res.status(200).json({
+        paused: true,
+        error: 'QR code generation is disabled by administrator.',
+      });
+    }
+
     const session = await qrService.getOrCreateCurrentSession(department_id);
+    if (!session) {
+      return res.status(200).json({
+        paused: true,
+        error: 'QR code generation is disabled by administrator.',
+      });
+    }
     return res.json({
       qr_session_id: session._id,
       department_id: session.department_id,
@@ -154,8 +167,21 @@ async function getKioskQR(req, res) {
       return res.status(400).json({ error: 'department_id query parameter is required.' });
     }
 
+    if (qrService.getSettings().qrGenerationEnabled === false) {
+      return res.status(200).json({
+        paused: true,
+        error: 'Kiosk attendance display is temporarily suspended.',
+      });
+    }
+
     // 3. Call same underlying QR generation/rotation logic as getCurrentQR
     const session = await qrService.getOrCreateCurrentSession(department_id);
+    if (!session) {
+      return res.status(200).json({
+        paused: true,
+        error: 'Kiosk attendance display is temporarily suspended.',
+      });
+    }
     return res.json({
       qr_session_id: session._id,
       department_id: session.department_id,

@@ -4,7 +4,7 @@ const securityAlertSchema = new mongoose.Schema({
   employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
   alert_type: {
     type: String,
-    enum: ['geofence_violation', 'department_mismatch', 'expired_qr', 'duplicate_scan'],
+    enum: ['geofence_violation', 'department_mismatch', 'expired_qr', 'duplicate_scan', 'mock_location', 'low_accuracy', 'rapid_fire_scan', 'qr_disabled_scan'],
     required: true
   },
   severity: {
@@ -21,6 +21,7 @@ const securityAlertSchema = new mongoose.Schema({
     qr_session_id: { type: mongoose.Schema.Types.ObjectId, ref: 'QRSession', default: null },
     accuracy_m: { type: Number, default: null },
     is_mock_location: { type: Boolean, default: null },
+    scan_count: { type: Number, default: null },
   },
   status: {
     type: String,

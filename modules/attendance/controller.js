@@ -13,6 +13,7 @@ const {
   verifyNoDuplicateCheckin,
   verifyCheckoutPreconditions,
   verifyGeofence,
+  detectRapidFireScan,
 } = require('./verificationSteps');
 
 // ─── Configuration ──────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ function getCheckoutStatus(workingHours, checkinStatus) {
 // Each step is an async function(ctx) that throws on rejection.
 
 const checkinSteps = [
+  detectRapidFireScan,          // blocks rapid-fire / brute-force attempts
   verifyQrSignatureAndExpiry,   // checks code_value / signature / expires_at
   verifyDepartmentMatch,        // checks employee dept matches QR dept (blocks 403)
   verifyNoDuplicateCheckin,     // checks employee doesn't already have today's record
@@ -74,6 +76,7 @@ const checkinSteps = [
 ];
 
 const checkoutSteps = [
+  detectRapidFireScan,          // blocks rapid-fire / brute-force attempts
   verifyQrSignatureAndExpiry,   // same QR integrity check
   verifyDepartmentMatch,        // same department check
   verifyCheckoutPreconditions,  // must have check-in, must not already have check-out

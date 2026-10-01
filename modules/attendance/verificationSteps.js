@@ -56,6 +56,13 @@ async function verifyQrSignatureAndExpiry(ctx) {
     throw err;
   }
 
+  const qrService = require('../qr/service');
+  if (qrService.getSettings().qrGenerationEnabled === false) {
+    const err = new Error('Attendance QR scanning is currently disabled by administrator.');
+    err.status = 403;
+    throw err;
+  }
+
   // Look up the stored session
   const session = await QRSession.findById(qr_session_id).lean();
   if (!session) {
@@ -85,6 +92,16 @@ async function verifyQrSignatureAndExpiry(ctx) {
 
   // Check expiry
   if (new Date() > new Date(session.expires_at)) {
+    // Log expired QR alert if employee is known
+    if (ctx.employee_id) {
+      SecurityAlert.create({
+        employee_id: ctx.employee_id,
+        alert_type: 'expired_qr',
+        severity: 'medium',
+        message: 'Employee attempted to scan an expired QR session.',
+        metadata: { qr_session_id: session._id },
+      }).catch(e => console.error('[ALERT] expired_qr write failed:', e.message));
+    }
     const err = new Error('QR code has expired. Please scan the current code.');
     err.status = 410;
     throw err;
@@ -163,6 +180,13 @@ async function verifyNoDuplicateCheckin(ctx) {
   }).lean();
 
   if (existing) {
+    SecurityAlert.create({
+      employee_id,
+      alert_type: 'duplicate_scan',
+      severity: 'high',
+      message: 'Employee attempted to check in again after already scanning today.',
+      metadata: { qr_session_id: ctx.qrSession?._id },
+    }).catch(e => console.error('[ALERT] duplicate_scan write failed:', e.message));
     const err = new Error('Employee has already checked in today.');
     err.status = 409;
     throw err;
@@ -233,6 +257,17 @@ async function verifyGeofence(ctx) {
     }
 
     if (is_mock_location === true) {
+      SecurityAlert.create({
+        employee_id: ctx.employee_id,
+        alert_type: 'mock_location',
+        severity: 'critical',
+        message: 'Employee scan rejected — mock/spoofed GPS location detected.',
+        metadata: {
+          qr_session_id: ctx.qrSession?._id,
+          is_mock_location: true,
+          department_id: ctx.qrSession?.department_id,
+        },
+      }).catch(e => console.error('[ALERT] mock_location write failed:', e.message));
       const err = new Error('MOCK_LOCATION');
       err.status = 403;
       err.body = { error: 'MOCK_LOCATION' };
@@ -242,6 +277,17 @@ async function verifyGeofence(ctx) {
     if (accuracy_m !== undefined && accuracy_m !== null) {
       const parsedAccuracy = Number(accuracy_m);
       if (parsedAccuracy > maxAccuracy) {
+        SecurityAlert.create({
+          employee_id: ctx.employee_id,
+          alert_type: 'low_accuracy',
+          severity: 'medium',
+          message: `Employee scan rejected — GPS accuracy too low (${parsedAccuracy}m, max ${maxAccuracy}m).`,
+          metadata: {
+            qr_session_id: ctx.qrSession?._id,
+            accuracy_m: parsedAccuracy,
+            department_id: ctx.qrSession?.department_id,
+          },
+        }).catch(e => console.error('[ALERT] low_accuracy write failed:', e.message));
         const err = new Error('ACCURACY_TOO_LOW');
         err.status = 422;
         err.body = { error: 'ACCURACY_TOO_LOW' };
@@ -349,8 +395,48 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
+
+/**
+ * Step 0 (pre-check): Rapid Fire Scan Detection.
+ * If the same employee generates > 3 SecurityAlerts within 60 seconds,
+ * flag it as a brute-force / spoof attempt and block the request.
+ *
+ * Uses existing SecurityAlert data — no extra dependencies.
+ * Throws 429 on rapid-fire detection.
+ */
+async function detectRapidFireScan(ctx) {
+  const { employee_id } = ctx;
+  if (!employee_id) return; // can't check without an ID
+
+  const WINDOW_SECONDS = 60;
+  const MAX_ALERTS = 3;
+  const since = new Date(Date.now() - WINDOW_SECONDS * 1000);
+
+  const recentCount = await SecurityAlert.countDocuments({
+    employee_id,
+    created_at: { $gte: since },
+  });
+
+  if (recentCount >= MAX_ALERTS) {
+    // Log the rapid-fire alert itself (fire-and-forget)
+    SecurityAlert.create({
+      employee_id,
+      alert_type: 'rapid_fire_scan',
+      severity: 'critical',
+      message: `Rapid-fire scan detected: ${recentCount} security alerts in the last ${WINDOW_SECONDS}s. Possible brute-force or replay attack.`,
+      metadata: { scan_count: recentCount },
+    }).catch(e => console.error('[ALERT] rapid_fire_scan write failed:', e.message));
+
+    const err = new Error('Too many failed scan attempts. Please wait before trying again.');
+    err.status = 429;
+    err.body = { error: 'RAPID_FIRE_SCAN_BLOCKED', retry_after_seconds: WINDOW_SECONDS };
+    throw err;
+  }
+}
+
 module.exports = {
   runVerificationPipeline,
+  detectRapidFireScan,
   verifyQrSignatureAndExpiry,
   verifyDepartmentMatch,
   verifyNoDuplicateCheckin,

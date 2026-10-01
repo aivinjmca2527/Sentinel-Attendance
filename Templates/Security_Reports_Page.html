@@ -230,9 +230,9 @@
 <div class="bg-surface border border-border rounded-xl shadow-sm overflow-hidden flex flex-col">
 <div class="px-lg py-md border-b border-border flex justify-between items-center">
 <h3 class="font-headline-sm text-headline-sm text-primary">Audit Trail</h3>
-<button class="text-secondary font-label-md hover:underline flex items-center gap-xs">
-                                View Full History
-                                <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+<button id="btn-view-full-history" type="button" class="text-secondary font-label-md hover:underline flex items-center gap-xs cursor-pointer">
+    View Full History
+    <span class="material-symbols-outlined text-[16px]">open_in_new</span>
 </button>
 </div>
 <div class="overflow-x-auto">
@@ -253,11 +253,12 @@
 </div>
 <div class="p-md border-t border-border flex justify-between items-center bg-surface-container-lowest">
 <span id="alert-event-count" class="text-body-sm text-on-surface-variant">Showing 0 security alerts</span>
-<div class="flex gap-sm">
-<button class="p-xs border border-border rounded-lg hover:bg-surface-container-low disabled:opacity-50" disabled="">
+<div class="flex items-center gap-sm">
+<span id="alert-page-indicator" class="text-xs text-on-surface-variant font-medium">Page 1 of 1</span>
+<button id="btn-prev-alerts-page" type="button" class="p-xs border border-border rounded-lg hover:bg-surface-container-low disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" disabled="">
 <span class="material-symbols-outlined">chevron_left</span>
 </button>
-<button class="p-xs border border-border rounded-lg hover:bg-surface-container-low">
+<button id="btn-next-alerts-page" type="button" class="p-xs border border-border rounded-lg hover:bg-surface-container-low disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer" disabled="">
 <span class="material-symbols-outlined">chevron_right</span>
 </button>
 </div>
@@ -448,17 +449,25 @@
                 });
             }
 
+            let isFullHistoryMode = false;
+
             // ── Fetch security alerts ──
-            async function fetchAlerts() {
-                const startStr = toISODate(selectedStart);
-                const endStr = toISODate(selectedEnd);
+            async function fetchAlerts(isFullHistory = false) {
+                isFullHistoryMode = isFullHistory;
+                let url = `/api/security/alerts?limit=200`;
+                if (!isFullHistory && selectedStart && selectedEnd) {
+                    const startStr = toISODate(selectedStart);
+                    const endStr = toISODate(selectedEnd);
+                    url = `/api/security/alerts?start_date=${startStr}&end_date=${endStr}&limit=50`;
+                }
                 try {
-                    const res = await fetch(`/api/security/alerts?start_date=${startStr}&end_date=${endStr}&limit=50`, {
+                    const res = await fetch(url, {
                         headers: authHeaders()
                     });
                     if (handle401Security(res)) return;
                     if (!res.ok) throw new Error('HTTP ' + res.status);
                     allSecurityAlerts = await res.json();
+                    alertsCurrentPage = 1;
                     const currentQ = (securitySearchInput?.value || '').trim();
                     if (currentQ) {
                         applySecurityFilter(currentQ);
@@ -503,28 +512,54 @@
                 document.getElementById('stat-total-sub').textContent = total > 0 ? `${total} alert(s) need attention` : 'All clear';
             }
 
+            let alertsCurrentPage = 1;
+            const ALERTS_PER_PAGE = 10;
+            let currentFilterAlerts = [];
+
             // ── Render alerts into table ──
             function renderAlerts(alerts) {
+                currentFilterAlerts = alerts || [];
                 const tbl = document.getElementById('alerts-tbody');
                 const eventCount = document.getElementById('alert-event-count');
+                const pageIndicator = document.getElementById('alert-page-indicator');
+                const btnPrev = document.getElementById('btn-prev-alerts-page');
+                const btnNext = document.getElementById('btn-next-alerts-page');
                 if (!tbl) return;
 
+                const totalItems = currentFilterAlerts.length;
+                const totalPages = Math.max(1, Math.ceil(totalItems / ALERTS_PER_PAGE));
+                if (alertsCurrentPage > totalPages) alertsCurrentPage = totalPages;
+                if (alertsCurrentPage < 1) alertsCurrentPage = 1;
+
                 const q = (securitySearchInput?.value || '').trim();
+                const startIdx = (alertsCurrentPage - 1) * ALERTS_PER_PAGE;
+                const endIdx = Math.min(startIdx + ALERTS_PER_PAGE, totalItems);
+
                 if (eventCount) {
-                    if (q) {
-                        eventCount.textContent = `Showing ${alerts.length} of ${allSecurityAlerts.length} security alerts (filtered)`;
+                    if (totalItems === 0) {
+                        eventCount.textContent = 'Showing 0 security alerts';
+                    } else if (q) {
+                        eventCount.textContent = `Showing ${startIdx + 1}–${endIdx} of ${totalItems} alerts (filtered from ${allSecurityAlerts.length})`;
                     } else {
-                        eventCount.textContent = `Showing ${alerts.length} security alert${alerts.length !== 1 ? 's' : ''}`;
+                        eventCount.textContent = `Showing ${startIdx + 1}–${endIdx} of ${totalItems} security alert${totalItems !== 1 ? 's' : ''}`;
                     }
                 }
 
-                if (!alerts || alerts.length === 0) {
-                    const emptyMsg = q ? `No security alerts matching "${q}"` : 'No security alerts for this date range.';
+                if (pageIndicator) {
+                    pageIndicator.textContent = `Page ${alertsCurrentPage} of ${totalPages}`;
+                }
+                if (btnPrev) btnPrev.disabled = alertsCurrentPage <= 1;
+                if (btnNext) btnNext.disabled = alertsCurrentPage >= totalPages;
+
+                if (!currentFilterAlerts || currentFilterAlerts.length === 0) {
+                    const emptyMsg = q ? `No security alerts matching "${q}"` : (isFullHistoryMode ? 'No historical security alerts found.' : 'No security alerts for this date range.');
                     tbl.innerHTML = `<tr><td colspan="5" class="px-lg py-md text-center text-on-surface-variant font-medium">${emptyMsg}</td></tr>`;
                     renderInsights([]);
                     bindRowClicks();
                     return;
                 }
+
+                const pageData = currentFilterAlerts.slice(startIdx, endIdx);
 
                 const severityMap = {
                     'critical': { label: 'Critical', cls: 'text-error bg-error bg-opacity-10' },
@@ -544,7 +579,7 @@
                     'duplicate_scan': { icon: 'content_copy', color: 'text-outline' },
                 };
 
-                tbl.innerHTML = alerts.slice(0, 50).map((a, i) => {
+                tbl.innerHTML = pageData.map((a, i) => {
                     const ic = typeIcons[a.alert_type] || { icon: 'info', color: 'text-outline' };
                     const sv = severityMap[a.severity] || { label: a.severity, cls: 'text-on-surface-variant bg-surface-container-low' };
                     const st = statusMap[a.status] || { label: a.status, cls: 'text-on-surface-variant bg-surface-container-low' };
@@ -552,7 +587,7 @@
                     const typeLabel = a.alert_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                     const timestamp = new Date(a.created_at).toLocaleString();
 
-                    return `<tr class="hover:bg-surface-container-lowest transition-colors ${zebra}" data-alert-id="${a._id}">
+                    return `<tr class="hover:bg-surface-container-lowest transition-colors ${zebra} cursor-pointer" data-alert-id="${a._id}">
                         <td class="px-lg py-md text-body-md font-label-md">${timestamp}</td>
                         <td class="px-lg py-md"><div class="flex items-center gap-sm"><span class="material-symbols-outlined ${ic.color}">${ic.icon}</span><span class="text-body-md">${typeLabel}</span></div></td>
                         <td class="px-lg py-md text-body-md">${a.employee_name} (${a.department_name})</td>
@@ -625,6 +660,46 @@
                 }
 
                 container.innerHTML = html;
+            }
+
+            // ── View Full History & Pagination Listeners ──
+            const btnViewFullHistory = document.getElementById('btn-view-full-history');
+            if (btnViewFullHistory) {
+                btnViewFullHistory.addEventListener('click', async () => {
+                    const dateLabel = document.getElementById('date-range-label');
+                    if (dateLabel) dateLabel.textContent = 'All-Time History';
+                    presetButtons.forEach(b => {
+                        b.classList.remove('bg-secondary-container', 'bg-opacity-10', 'text-secondary', 'font-semibold');
+                        b.classList.add('text-on-surface-variant', 'font-medium');
+                    });
+                    btnViewFullHistory.classList.add('opacity-50');
+                    await fetchAlerts(true);
+                    btnViewFullHistory.classList.remove('opacity-50');
+                    const auditSection = document.getElementById('alerts-tbody');
+                    if (auditSection) {
+                        auditSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                });
+            }
+
+            const btnPrevAlerts = document.getElementById('btn-prev-alerts-page');
+            const btnNextAlerts = document.getElementById('btn-next-alerts-page');
+            if (btnPrevAlerts) {
+                btnPrevAlerts.addEventListener('click', () => {
+                    if (alertsCurrentPage > 1) {
+                        alertsCurrentPage--;
+                        renderAlerts(currentFilterAlerts);
+                    }
+                });
+            }
+            if (btnNextAlerts) {
+                btnNextAlerts.addEventListener('click', () => {
+                    const totalPages = Math.ceil(currentFilterAlerts.length / ALERTS_PER_PAGE);
+                    if (alertsCurrentPage < totalPages) {
+                        alertsCurrentPage++;
+                        renderAlerts(currentFilterAlerts);
+                    }
+                });
             }
 
             // Handle Export Report Button Click

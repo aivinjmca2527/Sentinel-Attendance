@@ -20,6 +20,9 @@ const CODE_EXPIRY_SECONDS = 10;     // each code is valid for 10 seconds
  * @returns {Promise<Document>} The saved QRSession document
  */
 async function generateQRSession(departmentId) {
+  if (currentSettings.qrGenerationEnabled === false) {
+    throw new Error('QR generation is currently disabled.');
+  }
   const code_value = crypto.randomBytes(32).toString('hex');
   const signature = crypto
     .createHmac('sha256', QR_SIGNING_SECRET)
@@ -59,6 +62,9 @@ async function generateQRSession(departmentId) {
  * @returns {Promise<Document>}
  */
 async function getOrCreateCurrentSession(departmentId) {
+  if (currentSettings.qrGenerationEnabled === false) {
+    return null;
+  }
   const now = new Date();
   const query = { expires_at: { $gt: now } };
   if (departmentId) {
@@ -81,6 +87,7 @@ let rotationInterval = null;
  */
 function startRotationLoop() {
   if (rotationInterval) return; // already running
+  if (currentSettings.qrGenerationEnabled === false) return; // paused
 
   const intervalSec = currentSettings.intervalSeconds || 15;
   const intervalMs = intervalSec * 1000;
@@ -113,6 +120,7 @@ let currentSettings = {
   intervalSeconds: 15,
   geofenceEnabled: true,
   cryptoSigningEnabled: true,
+  qrGenerationEnabled: true,
 };
 
 /**
@@ -125,6 +133,7 @@ function getSettings() {
     ...currentSettings,
     geofenceEnabled: currentMode !== 'off',
     geofenceMode: currentMode,
+    qrGenerationEnabled: currentSettings.qrGenerationEnabled !== false,
   };
 }
 
@@ -149,6 +158,16 @@ function updateSettings(newSettings) {
       setGeofenceMode('off');
     } else {
       setGeofenceMode(newSettings.geofenceMode || 'enforce');
+    }
+  }
+
+  if (typeof newSettings.qrGenerationEnabled === 'boolean') {
+    const wasEnabled = currentSettings.qrGenerationEnabled !== false;
+    currentSettings.qrGenerationEnabled = newSettings.qrGenerationEnabled;
+    if (!newSettings.qrGenerationEnabled) {
+      stopRotationLoop();
+    } else if (!wasEnabled && newSettings.qrGenerationEnabled) {
+      startRotationLoop();
     }
   }
 
