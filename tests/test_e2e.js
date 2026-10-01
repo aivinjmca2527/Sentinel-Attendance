@@ -820,6 +820,82 @@ async function run() {
   log(adminApproveB.s === 200 && adminApproveB.b.leaveRequest?.status === 'approved', 'Admin can approve leave request across any department (200)', `status=${adminApproveB.s}`);
 
   // ═══════════════════════════════════════════
+  // ═══════════════════════════════════════════
+  console.log('\n─── Face Authentication Tests ───');
+
+  function mockFaceBuffer(personId, yaw) {
+    const magic = Buffer.from([0xFF, 0xD8, 0xFF]);
+    const payload = Buffer.from(`person:${personId};yaw:${yaw}`);
+    return Buffer.concat([magic, payload]);
+  }
+
+  // 1. Employee checks status (not enrolled)
+  const faceStatusOff = await req('GET', '/api/face/me', null, empAToken, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-test-face-mode': 'enforce' });
+  log(faceStatusOff.s === 200 && faceStatusOff.b.enrolled === false, 'Employee checks face status (not enrolled)', `enrolled=${faceStatusOff.b.enrolled}`);
+
+  // 2. Admin enrols employee (mock provider)
+  const enrollRes = await multipartReq('POST', '/api/face/enroll', { employee_id: empAId, consent_confirmed: 'true' }, [{ field: 'image', filename: 'face.jpg', buffer: mockFaceBuffer('empA', 0), contentType: 'image/jpeg' }], adminToken);
+  log(enrollRes.s === 201 && enrollRes.b.enrolled === true, 'Admin enrols employee face', `status=${enrollRes.s}`);
+
+  // 3. Request challenge
+  const challengeRes = await req('POST', '/api/face/challenge', null, empAToken, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-test-face-mode': 'enforce' });
+  log(challengeRes.s === 200 && !!challengeRes.b.challenge_id, 'Employee requests face challenge', `challenge=${challengeRes.b.challenge}`);
+  const challengeId = challengeRes.b.challenge_id;
+
+  // 4. Verify face
+  // determine yaw based on challenge direction
+  const challengeDir = challengeRes.b.challenge;
+  const yaw = challengeDir === 'turn_right' ? 30 : -30;
+  
+  const verifyRes = await multipartReq('POST', '/api/face/verify', { challenge_id: challengeId, intended_action: 'checkin' }, [
+    { field: 'neutral_frame', filename: 'n.jpg', buffer: mockFaceBuffer('empA', 0), contentType: 'image/jpeg' },
+    { field: 'action_frame', filename: 'a.jpg', buffer: mockFaceBuffer('empA', yaw), contentType: 'image/jpeg' }
+  ], empAToken, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-test-face-mode': 'enforce' });
+  log(verifyRes.s === 200 && !!verifyRes.b.face_proof, 'Employee verifies face and gets proof token', `status=${verifyRes.s}`);
+  const faceProof = verifyRes.b.face_proof;
+
+  // 5. Attendance Check-in with Face Proof (enforce mode)
+  // Need a new QR session for Dept A
+  await req('POST', '/api/qr/generate', { department_id: deptAId }, adminToken);
+  const faceQrRes = await req('GET', `/api/qr/current?department_id=${deptAId}`, null, empAToken);
+  
+  const faceCheckin = await req('POST', '/api/attendance/checkin', {
+    qr_session_id: faceQrRes.b.qr_session_id,
+    code_value: faceQrRes.b.code_value,
+    signature: faceQrRes.b.signature,
+    latitude: 10, longitude: 10, accuracy_m: 10, is_mock_location: false,
+    face_proof: faceProof
+  }, empAToken, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-test-face-mode': 'enforce' });
+  log(faceCheckin.s === 201, 'Check-in succeeds with valid face proof in enforce mode', `status=${faceCheckin.s} body=${JSON.stringify(faceCheckin.b)}`);
+
+  // 6. Replay attack: Reusing the same face proof (blocked by duplicate check-in first)
+  const replayCheckin = await req('POST', '/api/attendance/checkin', {
+    qr_session_id: faceQrRes.b.qr_session_id,
+    code_value: faceQrRes.b.code_value,
+    signature: faceQrRes.b.signature,
+    latitude: 10, longitude: 10, accuracy_m: 10, is_mock_location: false,
+    face_proof: faceProof
+  }, empAToken, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-test-face-mode': 'enforce' });
+  log(replayCheckin.s === 409, 'Replay attack / duplicate checkin prevented (409)', `status=${replayCheckin.s}`);
+
+  // 7. Face Mismatch / Spoof
+  const challenge2 = await req('POST', '/api/face/challenge', null, empAToken, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-test-face-mode': 'enforce' });
+  const mismatchRes = await multipartReq('POST', '/api/face/verify', { challenge_id: challenge2.b.challenge_id }, [
+    { field: 'neutral_frame', filename: 'n.jpg', buffer: mockFaceBuffer('intruder', 0), contentType: 'image/jpeg' },
+    { field: 'action_frame', filename: 'a.jpg', buffer: mockFaceBuffer('intruder', yaw), contentType: 'image/jpeg' }
+  ], empAToken, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-test-face-mode': 'enforce' });
+  log(mismatchRes.s === 403 && mismatchRes.b.error === 'FACE_MISMATCH', 'Face mismatch is rejected', `status=${mismatchRes.s}`);
+
+  // 8. Backward compatibility: check-in succeeds without proof when FACE_MODE=off
+  const offCheckin = await req('POST', '/api/attendance/checkout', {
+    qr_session_id: faceQrRes.b.qr_session_id,
+    code_value: faceQrRes.b.code_value,
+    signature: faceQrRes.b.signature,
+    latitude: 10, longitude: 10, accuracy_m: 10, is_mock_location: false
+  }, empAToken, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-test-face-mode': 'off' });
+  log(offCheckin.s === 200, 'Check-out succeeds without face proof when FACE_MODE=off', `status=${offCheckin.s}`);
+
+  // ═══════════════════════════════════════════
   console.log('\n─── Edge Cases ───');
 
   const notFound = await req('GET', '/api/nonexistent');

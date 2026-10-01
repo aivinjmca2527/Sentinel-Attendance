@@ -366,6 +366,14 @@ async function verify(employee_id, challenge_id, neutralBuffer, actionBuffer, in
     throw err;
   }
 
+  // Validate magic bytes
+  if (!validateImageMagicBytes(neutralBuffer) || !validateImageMagicBytes(actionBuffer)) {
+    const err = new Error('Invalid image format');
+    err.status = 415;
+    err.body = { error: 'INVALID_IMAGE_FORMAT' };
+    throw err;
+  }
+
   // Analyze both frames
   const provider = getProvider();
   const analyzeOne = async (buf) => {
