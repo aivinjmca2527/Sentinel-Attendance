@@ -119,6 +119,12 @@ async function checkin(req, res) {
 
     // Determine verification method based on what was provided
     const hasLocation = ctx.latitude != null && ctx.longitude != null;
+    
+    const { getFaceMode } = require('../../shared/config/face');
+    if (getFaceMode(req) === 'enforce' && ctx.face_verified && !hasLocation) {
+      return res.status(400).json({ error: 'LOCATION_REQUIRED' });
+    }
+
     let verification_method = hasLocation ? 'qr_geo' : 'qr_only';
     if (ctx.face_verified && hasLocation) {
       verification_method = 'qr_geo_face';
@@ -210,6 +216,12 @@ async function checkout(req, res) {
 
     // Upgrade verification method if location / face was provided
     const hasLocation = ctx.latitude != null && ctx.longitude != null;
+
+    const { getFaceMode } = require('../../shared/config/face');
+    if (getFaceMode(req) === 'enforce' && ctx.face_verified && !hasLocation) {
+      return res.status(400).json({ error: 'LOCATION_REQUIRED' });
+    }
+
     if (ctx.face_verified && hasLocation) {
       record.verification_method = 'qr_geo_face';
     } else if (hasLocation && record.verification_method === 'qr_only') {

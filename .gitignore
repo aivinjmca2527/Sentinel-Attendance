@@ -20,3 +20,6 @@ npm-debug.log*
 
 # Package lock (optional — uncomment if your team prefers)
 # package-lock.json
+scratch/
+test-local-provider.js
+photo*.jpg

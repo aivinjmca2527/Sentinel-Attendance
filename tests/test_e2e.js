@@ -7,6 +7,7 @@ const http = require('http');
 const { authenticator } = require('otplib');
 const { spawn } = require('child_process');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 
 const TEST_OVERRIDE_SECRET = process.env.TEST_OVERRIDE_SECRET || 'sentinel-test-secret-123';
 process.env.NODE_ENV = 'test';
@@ -109,9 +110,12 @@ async function ensureServerRunning() {
   }
 
   console.log('[Test Suite] Launching Sentinel server for E2E tests...');
+  const serverEnv = { ...process.env, PORT: '3000', NODE_ENV: 'test', TEST_OVERRIDE_SECRET };
+  delete serverEnv.MONGO_URI;
+
   spawnedServer = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
     stdio: 'ignore',
-    env: { ...process.env, PORT: '3000', NODE_ENV: 'test', TEST_OVERRIDE_SECRET }
+    env: serverEnv
   });
 
   const start = Date.now();
@@ -835,7 +839,6 @@ async function run() {
   const fe2Email = `fe2.${faceSuffix}@sentinel.com`;
 
   const faceEmp1Res = await req('POST', '/api/employees', { name: 'Face Emp 1', email: fe1Email, department_id: deptAId, role: 'Employee', designation: 'Tester', phone: `+1${faceSuffix}`, join_date: '2023-01-01' }, adminToken);
-  console.log('faceEmp1Res', faceEmp1Res.s, faceEmp1Res.b);
   const faceEmp1Id = faceEmp1Res.b && (faceEmp1Res.b._id || faceEmp1Res.b.id);
   const fe1Login = await req('POST', '/api/auth/login', { email: fe1Email, password: 'Welcome@123' });
   const fe1Token = fe1Login.b.token;
@@ -1054,11 +1057,83 @@ async function run() {
   // without secret, it falls back to 'off' mode (default), which succeeds (201) since fe3 hasn't checked in yet
   log(overrideIgnored.s === 201, 'X-Face-Mode override ignored without correct X-Test-Secret', `status=${overrideIgnored.s}`);
 
-  // expired challenge
-  // we can't easily wait for expiry, but we can trust it works if we manipulate the DB. We'll skip exact expiry test as we'd have to sleep 30s.
+  // Deterministic replay test
+  const chal6 = await req('POST', '/api/face/challenge', null, fe3Token, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-face-mode': 'enforce' });
+  const ver6 = await multipartReq('POST', '/api/face/verify', { challenge_id: chal6.b.challenge_id, intended_action: 'checkin' }, [
+    { field: 'neutral_frame', filename: 'n.jpg', buffer: mockFaceBuffer('fe3', 0), contentType: 'image/jpeg' },
+    { field: 'action_frame', filename: 'a.jpg', buffer: mockFaceBuffer('fe3', chal6.b.challenge === 'turn_right' ? 30 : -30), contentType: 'image/jpeg' }
+  ], fe3Token, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-face-mode': 'enforce' });
+  const deterministicProof = ver6.b.face_proof;
+
+  // successful checkin
+  const firstCheckin = await req('POST', '/api/attendance/checkin', {
+    qr_session_id: faceQrRes.b.qr_session_id,
+    code_value: faceQrRes.b.code_value,
+    signature: faceQrRes.b.signature,
+    latitude: 10, longitude: 10, accuracy_m: 10, is_mock_location: false,
+    face_proof: deterministicProof
+  }, fe3Token, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-face-mode': 'enforce', 'x-geofence-mode': 'off' });
+  
+  // delete attendance record
+  await req('DELETE', '/api/test/attendance/' + faceEmp3Id, null, adminToken, { 'x-test-secret': TEST_OVERRIDE_SECRET });
+  
+  // replay same proof
+  const replayCheckin = await req('POST', '/api/attendance/checkin', {
+    qr_session_id: faceQrRes.b.qr_session_id,
+    code_value: faceQrRes.b.code_value,
+    signature: faceQrRes.b.signature,
+    latitude: 10, longitude: 10, accuracy_m: 10, is_mock_location: false,
+    face_proof: deterministicProof
+  }, fe3Token, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-face-mode': 'enforce', 'x-geofence-mode': 'off' });
+  log(replayCheckin.s === 403 && replayCheckin.b.error === 'FACE_PROOF_REUSED', 'Deterministic replay test -> FACE_PROOF_REUSED', `status=${replayCheckin.s}`);
+
+  // Expired proof test
+  const expiredProof = jwt.sign({
+    jti: 'expired-123',
+    employee_id: faceEmp3Id,
+    intended_action: 'checkin'
+  }, process.env.FACE_PROOF_SECRET || 'test-face-proof-secret-xyz', { expiresIn: '-1h' });
+  const expProofReq = await req('POST', '/api/attendance/checkin', {
+    qr_session_id: faceQrRes.b.qr_session_id,
+    code_value: faceQrRes.b.code_value,
+    signature: faceQrRes.b.signature,
+    latitude: 10, longitude: 10, accuracy_m: 10, is_mock_location: false,
+    face_proof: expiredProof
+  }, fe3Token, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-face-mode': 'enforce' });
+  log(expProofReq.s === 403 && expProofReq.b.error === 'FACE_PROOF_EXPIRED', 'Expired proof -> FACE_PROOF_EXPIRED', `status=${expProofReq.s}`);
+
+  // expired challenge (skipped - would require sleeping 30s; TTL is enforced via FaceChallenge.createdAt TTL index)
+
+  // Enforce mode: face proof with no coordinates -> LOCATION_REQUIRED (new requirement)
+  const chal7 = await req('POST', '/api/face/challenge', null, fe3Token, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-face-mode': 'enforce' });
+  const ver7 = await multipartReq('POST', '/api/face/verify', { challenge_id: chal7.b.challenge_id, intended_action: 'checkin' }, [
+    { field: 'neutral_frame', filename: 'n.jpg', buffer: mockFaceBuffer('fe3', 0), contentType: 'image/jpeg' },
+    { field: 'action_frame', filename: 'a.jpg', buffer: mockFaceBuffer('fe3', chal7.b.challenge === 'turn_right' ? 30 : -30), contentType: 'image/jpeg' }
+  ], fe3Token, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-face-mode': 'enforce' });
+  const proofNoCoords = ver7.b.face_proof;
+  const noCoordRes = await req('POST', '/api/attendance/checkin', {
+    qr_session_id: faceQrRes.b.qr_session_id,
+    code_value: faceQrRes.b.code_value,
+    signature: faceQrRes.b.signature,
+    // no latitude/longitude
+    is_mock_location: false,
+    face_proof: proofNoCoords
+  }, fe3Token, { 'x-test-secret': TEST_OVERRIDE_SECRET, 'x-face-mode': 'enforce', 'x-geofence-mode': 'off' });
+  log(noCoordRes.s === 400 && noCoordRes.b.error === 'LOCATION_REQUIRED', 'Enforce + face proof + no coords -> LOCATION_REQUIRED', `status=${noCoordRes.s}`);
+
+  // Re-enroll existing face -> 409 FACE_ALREADY_ENROLLED (without replace flag)
+  const reenrollConflict = await multipartReq('POST', '/api/face/enroll', { employee_id: faceEmp1Id, consent_confirmed: 'true' }, [{ field: 'image', filename: 'face.jpg', buffer: mockFaceBuffer('fe1', 0), contentType: 'image/jpeg' }], adminToken);
+  log(reenrollConflict.s === 409 && reenrollConflict.b.error === 'FACE_ALREADY_ENROLLED', 'Re-enroll without replace flag -> 409 FACE_ALREADY_ENROLLED', `status=${reenrollConflict.s}`);
+
+  // Re-enroll with replace=true -> 200 success
+  const reenrollReplace = await multipartReq('POST', '/api/face/enroll', { employee_id: faceEmp1Id, consent_confirmed: 'true', replace: 'true' }, [{ field: 'image', filename: 'face.jpg', buffer: mockFaceBuffer('fe1', 0), contentType: 'image/jpeg' }], adminToken);
+  log(reenrollReplace.s === 200, 'Re-enroll with replace=true -> 200', `status=${reenrollReplace.s}`);
+
+  // Non-admin delete face template -> 403
+  const badDeleteRes = await req('DELETE', `/api/face/template/${faceEmp1Id}`, null, fe1Token);
+  log(badDeleteRes.s === 403, 'Non-admin delete face template is rejected (403)', `status=${badDeleteRes.s}`);
 
 
-  // ═══════════════════════════════════════════
   console.log('\n─── Edge Cases ───');
 
   const notFound = await req('GET', '/api/nonexistent');

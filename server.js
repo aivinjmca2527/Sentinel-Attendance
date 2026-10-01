@@ -72,6 +72,17 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
+if (process.env.NODE_ENV === 'test') {
+  app.delete('/api/test/attendance/:employeeId', async (req, res) => {
+    try {
+      const Attendance = require('./shared/models/Attendance');
+      await Attendance.deleteMany({ employee_id: req.params.employeeId });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+}
 app.use("/api", (_req, res) => {
   res.status(404).json({ error: "API endpoint not found." });
 });
