@@ -4,7 +4,11 @@ const securityAlertSchema = new mongoose.Schema({
   employee_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
   alert_type: {
     type: String,
-    enum: ['geofence_violation', 'department_mismatch', 'expired_qr', 'duplicate_scan', 'mock_location', 'low_accuracy', 'rapid_fire_scan', 'qr_disabled_scan'],
+    enum: [
+      'geofence_violation', 'department_mismatch', 'expired_qr', 'duplicate_scan',
+      'mock_location', 'low_accuracy', 'rapid_fire_scan', 'qr_disabled_scan',
+      'late_arrival', 'early_leave'
+    ],
     required: true
   },
   severity: {

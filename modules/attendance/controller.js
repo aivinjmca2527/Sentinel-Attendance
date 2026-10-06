@@ -19,16 +19,18 @@ const {
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 /**
- * Check-in cutoff time in "HH:MM" 24-hour format.
+ * Global fallback check-in cutoff time in "HH:MM" 24-hour format.
  * Anything at or before this time is "on-time", after is "late".
  * Override via CHECK_IN_CUTOFF env var (e.g. "09:30").
+ * Per-employee shift_start takes precedence when set.
  */
 const CHECK_IN_CUTOFF = process.env.CHECK_IN_CUTOFF || '09:00';
 
 /**
- * Standard workday length in hours.
+ * Global fallback standard workday length in hours.
  * Used to determine 'early-leave' status on checkout.
  * Override via STANDARD_WORK_HOURS env var.
+ * Per-employee min_work_hours takes precedence when set.
  */
 const STANDARD_WORK_HOURS = parseFloat(process.env.STANDARD_WORK_HOURS) || 8;
 
@@ -42,9 +44,14 @@ function getTodayRange() {
   return { todayStart, todayEnd };
 }
 
-/** Determine check-in status based on cutoff time. */
-function getCheckinStatus(checkInTime) {
-  const [cutH, cutM] = CHECK_IN_CUTOFF.split(':').map(Number);
+/**
+ * Determine check-in status based on employee's shift_start (or global fallback).
+ * @param {Date} checkInTime
+ * @param {string|null} empShiftStart - "HH:MM" or null
+ */
+function getCheckinStatus(checkInTime, empShiftStart) {
+  const cutoff = empShiftStart || CHECK_IN_CUTOFF;
+  const [cutH, cutM] = cutoff.split(':').map(Number);
   const h = checkInTime.getUTCHours();
   const m = checkInTime.getUTCMinutes();
   return (h < cutH || (h === cutH && m <= cutM)) ? 'on-time' : 'late';
@@ -56,9 +63,15 @@ function computeWorkingHours(checkIn, checkOut) {
   return parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
 }
 
-/** Determine checkout status. */
-function getCheckoutStatus(workingHours, checkinStatus) {
-  if (workingHours < STANDARD_WORK_HOURS) return 'early-leave';
+/**
+ * Determine checkout status.
+ * @param {number} workingHours
+ * @param {string} checkinStatus
+ * @param {number|null} empMinWorkHours - per-employee minimum hours or null for global fallback
+ */
+function getCheckoutStatus(workingHours, checkinStatus, empMinWorkHours) {
+  const minHours = (empMinWorkHours != null) ? empMinWorkHours : STANDARD_WORK_HOURS;
+  if (workingHours < minHours) return 'early-leave';
   // Preserve late if they were late checking in
   if (checkinStatus === 'late') return 'late';
   return 'on-time';
@@ -92,6 +105,8 @@ const checkoutSteps = [
  */
 async function checkin(req, res) {
   try {
+    const Employee = require('../../shared/models/Employee');
+    const SecurityAlert = require('../../shared/models/SecurityAlert');
     const { todayStart, todayEnd } = getTodayRange();
 
     // Build the pipeline context
@@ -114,7 +129,11 @@ async function checkin(req, res) {
     await runVerificationPipeline(checkinSteps, ctx);
 
     const now = new Date();
-    const status = getCheckinStatus(now);
+
+    // Load employee's personal shift settings
+    const empDoc = await Employee.findById(employee_id).lean();
+    const empShiftStart = empDoc?.shift_start || null;
+    const status = getCheckinStatus(now, empShiftStart);
 
     // Determine verification method based on whether location was provided
     const hasLocation = ctx.latitude != null && ctx.longitude != null;
@@ -133,6 +152,21 @@ async function checkin(req, res) {
     });
 
     await record.save();
+
+    // ── Fire late_arrival security alert if employee checked in late ──────────
+    if (status === 'late') {
+      try {
+        await SecurityAlert.create({
+          employee_id,
+          alert_type: 'late_arrival',
+          severity: 'low',
+          message: `Late arrival detected. Shift starts at ${empShiftStart || CHECK_IN_CUTOFF}. Checked in at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}.`,
+          metadata: { department_id: empDoc?.department_id || null },
+        });
+      } catch (alertErr) {
+        console.error('[checkin] Failed to create late_arrival alert:', alertErr.message);
+      }
+    }
 
     return res.status(201).json({
       message: 'Check-in successful.',
@@ -163,6 +197,8 @@ async function checkin(req, res) {
  */
 async function checkout(req, res) {
   try {
+    const Employee = require('../../shared/models/Employee');
+    const SecurityAlert = require('../../shared/models/SecurityAlert');
     const { todayStart, todayEnd } = getTodayRange();
 
     const employee_id = req.user?.employee_id || req.body.employee_id;
@@ -196,11 +232,36 @@ async function checkout(req, res) {
       record.verification_method = 'qr_geo';
     }
 
+    // Load employee's personal shift settings for checkout logic
+    const empDoc = await Employee.findById(employee_id).lean();
+    const empShiftStart = empDoc?.shift_start || null;
+    const empMinWorkHours = empDoc?.min_work_hours != null ? empDoc.min_work_hours : null;
+
     // Always recompute working hours and status from timestamps
     record.working_hours = computeWorkingHours(record.check_in_time, now);
-    record.status = getCheckoutStatus(record.working_hours, getCheckinStatus(record.check_in_time));
+    record.status = getCheckoutStatus(
+      record.working_hours,
+      getCheckinStatus(record.check_in_time, empShiftStart),
+      empMinWorkHours
+    );
 
     await record.save();
+
+    // ── Fire early_leave security alert if employee left before minimum hours ─
+    if (record.status === 'early-leave') {
+      try {
+        const requiredHours = empMinWorkHours != null ? empMinWorkHours : STANDARD_WORK_HOURS;
+        await SecurityAlert.create({
+          employee_id,
+          alert_type: 'early_leave',
+          severity: 'low',
+          message: `Early leave detected. Required ${requiredHours}h, worked only ${record.working_hours}h. Checked out at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}.`,
+          metadata: { department_id: empDoc?.department_id || null },
+        });
+      } catch (alertErr) {
+        console.error('[checkout] Failed to create early_leave alert:', alertErr.message);
+      }
+    }
 
     return res.status(200).json({
       message: 'Check-out successful.',

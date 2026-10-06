@@ -50,7 +50,10 @@ exports.listEmployees = async (req, res) => {
       department_name: e.department_id ? e.department_id.department_name : null,
       status: e.status,
       join_date: e.date_of_joining,
-      designation: e.designation
+      designation: e.designation,
+      shift_start: e.shift_start || null,
+      shift_end: e.shift_end || null,
+      min_work_hours: e.min_work_hours != null ? e.min_work_hours : null
     }));
 
     if (search) {
@@ -98,7 +101,10 @@ exports.getEmployee = async (req, res) => {
       department_name: e.department_id ? e.department_id.department_name : null,
       status: e.status,
       join_date: e.date_of_joining,
-      designation: e.designation
+      designation: e.designation,
+      shift_start: e.shift_start || null,
+      shift_end: e.shift_end || null,
+      min_work_hours: e.min_work_hours != null ? e.min_work_hours : null
     });
   } catch (err) {
     res.status(500).json({ error: "Internal server error." });
@@ -110,7 +116,7 @@ exports.getEmployee = async (req, res) => {
 exports.createEmployee = async (req, res) => {
   try {
     const role = (req.user?.role || '').toLowerCase();
-    let { name, email, phone, role: empRole, department_id, status, join_date, designation } = req.body || {};
+    let { name, email, phone, role: empRole, department_id, status, join_date, designation, shift_start, shift_end, min_work_hours } = req.body || {};
     if (!name || !email || !designation) {
       return res.status(400).json({ error: "name, email, and designation are required." });
     }
@@ -145,7 +151,10 @@ exports.createEmployee = async (req, res) => {
       designation: designation,
       contact_number: phone || null,
       date_of_joining: join_date || new Date(),
-      status: status || "active"
+      status: status || "active",
+      shift_start: shift_start || null,
+      shift_end: shift_end || null,
+      min_work_hours: min_work_hours != null ? parseFloat(min_work_hours) : null
     });
 
     res.status(201).json(newEmployee);
@@ -176,7 +185,7 @@ exports.updateEmployee = async (req, res) => {
       }
     }
 
-    const { name, email, phone, role: newRole, department_id, status, join_date, designation } = req.body || {};
+    const { name, email, phone, role: newRole, department_id, status, join_date, designation, shift_start, shift_end, min_work_hours } = req.body || {};
     
     if (name || email || newRole) {
       const user = await User.findById(emp.user_id);
@@ -197,6 +206,9 @@ exports.updateEmployee = async (req, res) => {
     if (status !== undefined) emp.status = status;
     if (join_date !== undefined) emp.date_of_joining = join_date;
     if (designation !== undefined) emp.designation = designation;
+    if (shift_start !== undefined) emp.shift_start = shift_start || null;
+    if (shift_end !== undefined) emp.shift_end = shift_end || null;
+    if (min_work_hours !== undefined) emp.min_work_hours = min_work_hours != null ? parseFloat(min_work_hours) : null;
     
     await emp.save();
 

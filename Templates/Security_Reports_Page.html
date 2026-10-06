@@ -577,6 +577,12 @@
                     'department_mismatch': { icon: 'swap_horiz', color: 'text-warning' },
                     'expired_qr': { icon: 'schedule', color: 'text-error' },
                     'duplicate_scan': { icon: 'content_copy', color: 'text-outline' },
+                    'late_arrival': { icon: 'schedule', color: 'text-warning' },
+                    'early_leave': { icon: 'logout', color: 'text-warning' },
+                    'mock_location': { icon: 'gps_off', color: 'text-error' },
+                    'low_accuracy': { icon: 'my_location', color: 'text-outline' },
+                    'rapid_fire_scan': { icon: 'bolt', color: 'text-error' },
+                    'qr_disabled_scan': { icon: 'qr_code_scanner', color: 'text-error' },
                 };
 
                 tbl.innerHTML = pageData.map((a, i) => {
@@ -634,6 +640,32 @@
                         </div>
                     </div>`;
                 }
+                const lateCount = alerts.filter(a => a.alert_type === 'late_arrival').length;
+                const earlyLeaveCount = alerts.filter(a => a.alert_type === 'early_leave').length;
+
+                if (lateCount > 0) {
+                    html += `<div class="p-md bg-warning bg-opacity-5 border border-warning border-opacity-10 rounded-xl">
+                        <div class="flex gap-sm">
+                            <span class="material-symbols-outlined text-warning mt-0.5">schedule</span>
+                            <div>
+                                <p class="font-body-md font-semibold text-warning mb-1">Late Arrivals</p>
+                                <p class="text-body-sm text-on-surface-variant">${lateCount} employee(s) arrived after their scheduled shift start time.</p>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                if (earlyLeaveCount > 0) {
+                    html += `<div class="p-md bg-warning bg-opacity-5 border border-warning border-opacity-10 rounded-xl">
+                        <div class="flex gap-sm">
+                            <span class="material-symbols-outlined text-warning mt-0.5">logout</span>
+                            <div>
+                                <p class="font-body-md font-semibold text-warning mb-1">Early Departures</p>
+                                <p class="text-body-sm text-on-surface-variant">${earlyLeaveCount} employee(s) left before completing their minimum required hours.</p>
+                            </div>
+                        </div>
+                    </div>`;
+                }
 
                 if (openCount > 0) {
                     html += `<div class="p-md bg-secondary-container bg-opacity-5 border border-secondary border-opacity-10 rounded-xl">
@@ -646,6 +678,7 @@
                         </div>
                     </div>`;
                 }
+
 
                 if (!html) {
                     html = `<div class="p-md bg-success bg-opacity-5 border border-success border-opacity-10 rounded-xl">
