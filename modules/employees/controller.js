@@ -284,6 +284,9 @@ exports.getDepartment = async (req, res) => {
 
 exports.createDepartment = async (req, res) => {
   try {
+    const GEO_LAT    = parseFloat(process.env.GEOFENCE_LAT)    || 9.516203;
+    const GEO_LNG    = parseFloat(process.env.GEOFENCE_LNG)    || 76.560372;
+    const GEO_RADIUS = parseFloat(process.env.GEOFENCE_RADIUS_M) || 200;
     const { name, manager, geofence_lat, geofence_lng, geofence_radius_m } = req.body || {};
     if (!name) {
       return res.status(400).json({ error: "name is required." });
@@ -297,9 +300,9 @@ exports.createDepartment = async (req, res) => {
     const newDept = await Department.create({
       department_name: name.trim(),
       manager_id: manager || null,
-      geofence_lat: geofence_lat != null ? Number(geofence_lat) : 10.0159,
-      geofence_lng: geofence_lng != null ? Number(geofence_lng) : 76.3419,
-      geofence_radius_m: geofence_radius_m != null ? Number(geofence_radius_m) : 200
+      geofence_lat: geofence_lat != null ? Number(geofence_lat) : GEO_LAT,
+      geofence_lng: geofence_lng != null ? Number(geofence_lng) : GEO_LNG,
+      geofence_radius_m: geofence_radius_m != null ? Number(geofence_radius_m) : GEO_RADIUS
     });
     
     res.status(201).json(newDept);

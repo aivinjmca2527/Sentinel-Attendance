@@ -448,8 +448,8 @@
         <span class="text-xs text-on-surface-variant hidden sm:inline">• Click or drag the marker to position office</span>
       </div>
       <div class="flex items-center gap-2 text-xs font-mono text-on-surface-variant">
-        <span>Lat: <strong id="display-lat" class="text-on-surface">10.0159</strong></span>
-        <span>Lng: <strong id="display-lng" class="text-on-surface">76.3419</strong></span>
+        <span>Lat: <strong id="display-lat" class="text-on-surface">9.516203</strong></span>
+        <span>Lng: <strong id="display-lng" class="text-on-surface">76.560372</strong></span>
       </div>
     </div>
 
@@ -742,8 +742,8 @@
     let leafletMap = null;
     let mapMarker  = null;
     let mapCircle  = null;
-    let currentMapLat = 10.0159;
-    let currentMapLng = 76.3419;
+    let currentMapLat = 9.516203;
+    let currentMapLng = 76.560372;
     let currentMapRadius = 200;
 
     const KIOSK_SECRET_KEY = 'sentinel-kiosk-display-key-test-2026';
@@ -839,8 +839,8 @@
           geofenceStatusDesc.textContent = 'Enforcement disabled (check-ins allowed anywhere).';
         } else if (match) {
           const rad = match.geofence_radius_m || 200;
-          const lat = match.geofence_lat != null ? Number(match.geofence_lat).toFixed(4) : '10.0159';
-          const lng = match.geofence_lng != null ? Number(match.geofence_lng).toFixed(4) : '76.3419';
+          const lat = match.geofence_lat != null ? Number(match.geofence_lat).toFixed(6) : '9.516203';
+          const lng = match.geofence_lng != null ? Number(match.geofence_lng).toFixed(6) : '76.560372';
           geofenceStatusDesc.textContent = `${rad}m radius around ${lat}, ${lng} (Enforced)`;
         } else {
           geofenceStatusDesc.textContent = 'Require users to be within department perimeter.';
@@ -1025,8 +1025,8 @@
     function initOrUpdateGeofenceMap() {
       const currentDept = departmentsList.find(d => (d._id || d.id) === currentAdminDeptId) || departmentsList[0];
       if (currentDept) {
-        currentMapLat = currentDept.geofence_lat != null ? currentDept.geofence_lat : 10.0159;
-        currentMapLng = currentDept.geofence_lng != null ? currentDept.geofence_lng : 76.3419;
+        currentMapLat = currentDept.geofence_lat != null ? currentDept.geofence_lat : 9.516203;
+        currentMapLng = currentDept.geofence_lng != null ? currentDept.geofence_lng : 76.560372;
         currentMapRadius = currentDept.geofence_radius_m || 200;
         if (modalDeptTitle) {
           modalDeptTitle.textContent = `Editing perimeter boundary for ${currentDept.department_name}`;

@@ -9,6 +9,11 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const MONGO_URI = process.env.MONGO_URI || '';
 
+// Geofence defaults — read from env so they're configurable without touching code
+const GEO_LAT    = parseFloat(process.env.GEOFENCE_LAT)    || 10.0159;
+const GEO_LNG    = parseFloat(process.env.GEOFENCE_LNG)    || 76.3419;
+const GEO_RADIUS = parseFloat(process.env.GEOFENCE_RADIUS_M) || 200;
+
 async function connectDB() {
   let uri = MONGO_URI;
   if (!uri || uri.includes('replace-with')) {
@@ -30,10 +35,12 @@ async function connectDB() {
 }
 
 async function seedIfEmpty() {
-  // Ensure existing departments have geofence coordinates configured
+  // Ensure existing departments have geofence coordinates configured.
+  // Only patches departments that have never had coordinates set — will NOT
+  // overwrite coordinates that were manually configured via the admin UI or DB.
   await Department.updateMany(
     { $or: [{ geofence_lat: null }, { geofence_lat: { $exists: false } }] },
-    { $set: { geofence_lat: 10.0159, geofence_lng: 76.3419, geofence_radius_m: 200 } }
+    { $set: { geofence_lat: GEO_LAT, geofence_lng: GEO_LNG, geofence_radius_m: GEO_RADIUS } }
   );
 
   const count = await Department.countDocuments();
@@ -43,15 +50,15 @@ async function seedIfEmpty() {
 
   const hr = await Department.create({
     department_name: 'Human Resources',
-    geofence_lat: 10.0159,
-    geofence_lng: 76.3419,
-    geofence_radius_m: 200
+    geofence_lat: GEO_LAT,
+    geofence_lng: GEO_LNG,
+    geofence_radius_m: GEO_RADIUS
   });
   const eng = await Department.create({
     department_name: 'Engineering',
-    geofence_lat: 10.0159,
-    geofence_lng: 76.3419,
-    geofence_radius_m: 200
+    geofence_lat: GEO_LAT,
+    geofence_lng: GEO_LNG,
+    geofence_radius_m: GEO_RADIUS
   });
 
   const adminPass = bcrypt.hashSync('Admin@123', 10);
