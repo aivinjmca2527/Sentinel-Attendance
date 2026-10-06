@@ -144,7 +144,7 @@
 </div>
 <div class="flex gap-sm">
 <input id="attendance-date-picker" type="date" class="flex items-center gap-xs px-4 py-2 border border-border text-on-surface bg-surface rounded shadow-sm font-label-md text-label-md">
-<button id="attendance-export-btn" class="flex items-center gap-xs px-4 py-2 border border-border text-on-surface bg-surface rounded shadow-sm hover:bg-surface-container-low font-label-md text-label-md transition-colors">
+<button id="attendance-export-btn" class="flex items-center gap-xs px-4 py-2 border border-border text-on-surface bg-surface rounded shadow-sm hover:bg-surface-container-low font-label-md text-label-md transition-colors cursor-pointer">
 <span class="material-symbols-outlined text-sm">download</span> Export
                         </button>
 <button id="attendance-refresh-btn" class="flex items-center gap-xs px-4 py-2 bg-primary text-on-primary rounded shadow-sm hover:bg-primary/90 font-label-md text-label-md transition-colors">
@@ -243,14 +243,7 @@
 <!-- Pagination -->
 <div class="p-3 border-t border-border flex justify-between items-center bg-surface text-body-sm text-on-surface-variant">
 <span id="attendance-pagination-info">Showing 0 entries</span>
-<div class="flex gap-1">
-<button class="px-2 py-1 border border-border rounded hover:bg-surface-container-low disabled:opacity-50" disabled=""><span class="material-symbols-outlined text-sm">chevron_left</span></button>
-<button class="px-3 py-1 border border-secondary bg-secondary/5 text-secondary rounded font-medium">1</button>
-<button class="px-3 py-1 border border-border rounded hover:bg-surface-container-low">2</button>
-<button class="px-3 py-1 border border-border rounded hover:bg-surface-container-low">3</button>
-<span class="px-2 py-1">...</span>
-<button class="px-2 py-1 border border-border rounded hover:bg-surface-container-low"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
-</div>
+<div id="attendance-pagination-controls" class="flex gap-1 items-center"></div>
 </div>
 </div>
 </div>
@@ -274,7 +267,12 @@
   var deptFilter = document.getElementById('attendance-dept-filter');
   var statusFilter = document.getElementById('attendance-status-filter');
   var refreshBtn = document.getElementById('attendance-refresh-btn');
+  var exportBtn = document.getElementById('attendance-export-btn');
   var paginationInfo = document.getElementById('attendance-pagination-info');
+  var paginationControls = document.getElementById('attendance-pagination-controls');
+
+  var PAGE_SIZE = 10;
+  var currentPage = 1;
 
   // Stat card elements
   var statTotalEl = document.getElementById('stat-total-workforce');
@@ -342,21 +340,30 @@
       .then(function(data) {
         if (!data) return;
         allRecords = data;
+        currentPage = 1;
         updateStatCards();
         renderTable();
       })
       .catch(function(err) {
         console.error('[Attendance] Fetch error:', err.message);
         tbody.innerHTML = '<tr><td colspan="7" class="px-md py-3 text-center text-error">Failed to load attendance records</td></tr>';
+        if (paginationControls) paginationControls.innerHTML = '';
+        if (paginationInfo) paginationInfo.textContent = 'Showing 0 entries';
       });
   }
 
-  function renderTable() {
+  function escapeCsv(val) {
+    if (val === null || val === undefined) return '""';
+    var str = String(val).replace(/"/g, '""');
+    return '"' + str + '"';
+  }
+
+  function getFilteredRecords() {
     var searchTerm = (searchInput.value || '').toLowerCase().trim();
     var deptVal = (deptFilter.value || '').toLowerCase();
     var statusVal = statusFilter.value || '';
 
-    var filtered = allRecords.filter(function(r) {
+    return allRecords.filter(function(r) {
       if (searchTerm) {
         var haystack = [
           r.employee_name || '',
@@ -364,7 +371,8 @@
           r.department_name || '',
           r.designation || '',
           r.status || '',
-          r.email || ''
+          r.email || '',
+          r.employee_email || ''
         ].join(' ').toLowerCase();
         if (haystack.indexOf(searchTerm) === -1) return false;
       }
@@ -372,18 +380,142 @@
       if (statusVal && r.status !== statusVal) return false;
       return true;
     });
+  }
 
-    paginationInfo.textContent = 'Showing ' + filtered.length + ' of ' + allRecords.length + ' entries';
+  function renderPagination(totalItems) {
+    if (!paginationControls) return;
 
-    if (filtered.length === 0) {
+    var totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    if (totalItems === 0) {
+      paginationControls.innerHTML = '';
+      return;
+    }
+
+    var html = '';
+
+    // Prev Button
+    if (currentPage > 1) {
+      html += '<button id="attendance-page-prev" class="px-2 py-1 border border-border rounded hover:bg-surface-container-low transition-colors cursor-pointer flex items-center justify-center" aria-label="Previous Page"><span class="material-symbols-outlined text-sm">chevron_left</span></button>';
+    } else {
+      html += '<button id="attendance-page-prev" class="px-2 py-1 border border-border rounded opacity-40 cursor-not-allowed flex items-center justify-center" disabled aria-label="Previous Page"><span class="material-symbols-outlined text-sm">chevron_left</span></button>';
+    }
+
+    // Determine page numbers to show
+    var pages = [];
+    if (totalPages <= 7) {
+      for (var p = 1; p <= totalPages; p++) {
+        pages.push(p);
+      }
+    } else {
+      pages.push(1);
+      if (currentPage > 4) {
+        pages.push('...');
+      }
+
+      var start = Math.max(2, currentPage - 1);
+      var end = Math.min(totalPages - 1, currentPage + 1);
+
+      if (currentPage <= 4) {
+        start = 2;
+        end = 4;
+      } else if (currentPage >= totalPages - 3) {
+        start = totalPages - 3;
+        end = totalPages - 1;
+      }
+
+      for (var i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      if (currentPage < totalPages - 3) {
+        pages.push('...');
+      }
+      pages.push(totalPages);
+    }
+
+    for (var j = 0; j < pages.length; j++) {
+      var item = pages[j];
+      if (item === '...') {
+        html += '<span class="px-2 py-1 text-on-surface-variant text-body-sm select-none">...</span>';
+      } else if (item === currentPage) {
+        html += '<button class="px-3 py-1 border border-secondary bg-secondary/5 text-secondary rounded font-medium text-body-sm cursor-default" data-page="' + item + '">' + item + '</button>';
+      } else {
+        html += '<button class="attendance-page-num-btn px-3 py-1 border border-border rounded hover:bg-surface-container-low transition-colors cursor-pointer text-body-sm font-medium" data-page="' + item + '">' + item + '</button>';
+      }
+    }
+
+    // Next Button
+    if (currentPage < totalPages) {
+      html += '<button id="attendance-page-next" class="px-2 py-1 border border-border rounded hover:bg-surface-container-low transition-colors cursor-pointer flex items-center justify-center" aria-label="Next Page"><span class="material-symbols-outlined text-sm">chevron_right</span></button>';
+    } else {
+      html += '<button id="attendance-page-next" class="px-2 py-1 border border-border rounded opacity-40 cursor-not-allowed flex items-center justify-center" disabled aria-label="Next Page"><span class="material-symbols-outlined text-sm">chevron_right</span></button>';
+    }
+
+    paginationControls.innerHTML = html;
+
+    // Attach button listeners
+    var prevBtn = document.getElementById('attendance-page-prev');
+    if (prevBtn && currentPage > 1) {
+      prevBtn.addEventListener('click', function() {
+        if (currentPage > 1) {
+          currentPage--;
+          renderTable();
+        }
+      });
+    }
+
+    var nextBtn = document.getElementById('attendance-page-next');
+    if (nextBtn && currentPage < totalPages) {
+      nextBtn.addEventListener('click', function() {
+        if (currentPage < totalPages) {
+          currentPage++;
+          renderTable();
+        }
+      });
+    }
+
+    var numBtns = paginationControls.querySelectorAll('.attendance-page-num-btn');
+    numBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var targetPage = parseInt(this.getAttribute('data-page'), 10);
+        if (targetPage && targetPage !== currentPage) {
+          currentPage = targetPage;
+          renderTable();
+        }
+      });
+    });
+  }
+
+  function renderTable() {
+    var filtered = getFilteredRecords();
+    var searchTerm = (searchInput.value || '').toLowerCase().trim();
+    var totalItems = filtered.length;
+
+    var totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    renderPagination(totalItems);
+
+    if (totalItems === 0) {
+      paginationInfo.textContent = 'Showing 0 entries';
       var emptyMsg = searchTerm ? 'No records matching "' + searchInput.value.trim() + '"' : 'No records found';
       tbody.innerHTML = '<tr><td colspan="7" class="px-md py-6 text-center text-on-surface-variant font-medium">' + emptyMsg + '</td></tr>';
       return;
     }
 
+    var startIdx = (currentPage - 1) * PAGE_SIZE;
+    var endIdx = Math.min(startIdx + PAGE_SIZE, totalItems);
+    paginationInfo.textContent = 'Showing ' + (startIdx + 1) + '–' + endIdx + ' of ' + totalItems + ' entries';
+
+    var pageSlice = filtered.slice(startIdx, endIdx);
     var html = '';
-    for (var i = 0; i < filtered.length; i++) {
-      var r = filtered[i];
+    for (var i = 0; i < pageSlice.length; i++) {
+      var r = pageSlice[i];
       var name = r.employee_name || 'Unknown';
       var words = name.split(' ');
       var initials = '';
@@ -434,16 +566,103 @@
     tbody.innerHTML = html;
   }
 
+  function exportDailyAttendanceCsv() {
+    var filtered = getFilteredRecords();
+    var selectedDate = datePicker.value || new Date().toISOString().split('T')[0];
+
+    if (!filtered || filtered.length === 0) {
+      alert('No attendance records found to export for ' + selectedDate + '.');
+      return;
+    }
+
+    var headers = [
+      'Date',
+      'Employee ID',
+      'Employee Name',
+      'Email',
+      'Department',
+      'Designation',
+      'Status',
+      'Check In Time',
+      'Check Out Time',
+      'Working Hours',
+      'Verification Method'
+    ];
+
+    var csvRows = [headers.map(escapeCsv).join(',')];
+
+    for (var i = 0; i < filtered.length; i++) {
+      var r = filtered[i];
+      var empId = r.employee_id ? String(r.employee_id).slice(-4).toUpperCase() : '----';
+      var checkIn = r.check_in_time
+        ? new Date(r.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+        : 'N/A';
+      var checkOut = r.check_out_time
+        ? new Date(r.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+        : 'N/A';
+      var status = (r.status || 'unknown').replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+      var workHours;
+      if (r.working_hours != null) {
+        workHours = Math.floor(r.working_hours) + 'h ' + Math.round((r.working_hours % 1) * 60) + 'm';
+      } else if (r.check_in_time && !r.check_out_time) {
+        workHours = 'In Progress';
+      } else {
+        workHours = '00h 00m';
+      }
+
+      var row = [
+        escapeCsv(selectedDate),
+        escapeCsv('EMP-' + empId),
+        escapeCsv(r.employee_name || 'Unknown'),
+        escapeCsv(r.employee_email || r.email || 'N/A'),
+        escapeCsv(r.department_name || 'N/A'),
+        escapeCsv(r.designation || 'N/A'),
+        escapeCsv(status),
+        escapeCsv(checkIn),
+        escapeCsv(checkOut),
+        escapeCsv(workHours),
+        escapeCsv(r.verification_method || 'qr_scan')
+      ];
+      csvRows.push(row.join(','));
+    }
+
+    var csvContent = '\uFEFF' + csvRows.join('\r\n');
+    var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'sentinel_daily_attendance_' + selectedDate + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   // Event listeners
   datePicker.addEventListener('change', function() {
+    currentPage = 1;
     var d = new Date(datePicker.value + 'T00:00:00');
     dateDisplay.textContent = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     fetchAttendance();
   });
-  searchInput.addEventListener('input', renderTable);
-  deptFilter.addEventListener('change', renderTable);
-  statusFilter.addEventListener('change', renderTable);
-  refreshBtn.addEventListener('click', fetchAttendance);
+  searchInput.addEventListener('input', function() {
+    currentPage = 1;
+    renderTable();
+  });
+  deptFilter.addEventListener('change', function() {
+    currentPage = 1;
+    renderTable();
+  });
+  statusFilter.addEventListener('change', function() {
+    currentPage = 1;
+    renderTable();
+  });
+  refreshBtn.addEventListener('click', function() {
+    fetchAttendance();
+  });
+  if (exportBtn) {
+    exportBtn.addEventListener('click', exportDailyAttendanceCsv);
+  }
 
   // Initial load
   var urlParams = new URLSearchParams(window.location.search);
