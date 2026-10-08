@@ -30,6 +30,11 @@ const securityRoutes = require('./modules/security/routes');              // Aiv
 
 const app = express();
 
+// Trust the first proxy hop (e.g. nginx, Render, Railway, or any reverse proxy).
+// This lets express-rate-limit read the real client IP from X-Forwarded-For
+// without throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+app.set('trust proxy', 1);
+
 app.use(cors({
   origin: (origin, cb) => cb(null, true),
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

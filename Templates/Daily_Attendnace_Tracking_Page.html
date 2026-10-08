@@ -570,72 +570,98 @@
     var filtered = getFilteredRecords();
     var selectedDate = datePicker.value || new Date().toISOString().split('T')[0];
 
-    if (!filtered || filtered.length === 0) {
-      alert('No attendance records found to export for ' + selectedDate + '.');
+    // Guard: nothing loaded yet (API may have failed)
+    if (!allRecords || allRecords.length === 0) {
+      alert('No attendance data loaded. Please wait for records to load or refresh, then try again.');
       return;
     }
 
-    var headers = [
-      'Date',
-      'Employee ID',
-      'Employee Name',
-      'Email',
-      'Department',
-      'Designation',
-      'Status',
-      'Check In Time',
-      'Check Out Time',
-      'Working Hours',
-      'Verification Method'
-    ];
-
-    var csvRows = [headers.map(escapeCsv).join(',')];
-
-    for (var i = 0; i < filtered.length; i++) {
-      var r = filtered[i];
-      var empId = r.employee_id ? String(r.employee_id).slice(-4).toUpperCase() : '----';
-      var checkIn = r.check_in_time
-        ? new Date(r.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
-        : 'N/A';
-      var checkOut = r.check_out_time
-        ? new Date(r.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
-        : 'N/A';
-      var status = (r.status || 'unknown').replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
-      var workHours;
-      if (r.working_hours != null) {
-        workHours = Math.floor(r.working_hours) + 'h ' + Math.round((r.working_hours % 1) * 60) + 'm';
-      } else if (r.check_in_time && !r.check_out_time) {
-        workHours = 'In Progress';
-      } else {
-        workHours = '00h 00m';
-      }
-
-      var row = [
-        escapeCsv(selectedDate),
-        escapeCsv('EMP-' + empId),
-        escapeCsv(r.employee_name || 'Unknown'),
-        escapeCsv(r.employee_email || r.email || 'N/A'),
-        escapeCsv(r.department_name || 'N/A'),
-        escapeCsv(r.designation || 'N/A'),
-        escapeCsv(status),
-        escapeCsv(checkIn),
-        escapeCsv(checkOut),
-        escapeCsv(workHours),
-        escapeCsv(r.verification_method || 'qr_scan')
-      ];
-      csvRows.push(row.join(','));
+    // Guard: filters narrowed results to zero
+    if (!filtered || filtered.length === 0) {
+      alert('No records match the current filters for ' + selectedDate + '. Clear filters or select a different date before exporting.');
+      return;
     }
 
-    var csvContent = '\uFEFF' + csvRows.join('\r\n');
-    var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'sentinel_daily_attendance_' + selectedDate + '.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Show loading state on button
+    var originalHTML = exportBtn.innerHTML;
+    exportBtn.disabled = true;
+    exportBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Exporting…';
+
+    try {
+      var headers = [
+        'Date',
+        'Employee ID',
+        'Employee Name',
+        'Email',
+        'Department',
+        'Designation',
+        'Status',
+        'Check In Time',
+        'Check Out Time',
+        'Working Hours',
+        'Verification Method'
+      ];
+
+      var csvRows = [headers.map(escapeCsv).join(',')];
+
+      for (var i = 0; i < filtered.length; i++) {
+        var r = filtered[i];
+        var empId = r.employee_id ? String(r.employee_id).slice(-4).toUpperCase() : '----';
+        var checkIn = r.check_in_time
+          ? new Date(r.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+          : 'N/A';
+        var checkOut = r.check_out_time
+          ? new Date(r.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+          : 'N/A';
+        var status = (r.status || 'unknown').replace(/-/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+        var workHours;
+        if (r.working_hours != null) {
+          workHours = Math.floor(r.working_hours) + 'h ' + Math.round((r.working_hours % 1) * 60) + 'm';
+        } else if (r.check_in_time && !r.check_out_time) {
+          workHours = 'In Progress';
+        } else {
+          workHours = '00h 00m';
+        }
+
+        var row = [
+          escapeCsv(selectedDate),
+          escapeCsv('EMP-' + empId),
+          escapeCsv(r.employee_name || 'Unknown'),
+          escapeCsv(r.employee_email || r.email || 'N/A'),
+          escapeCsv(r.department_name || 'N/A'),
+          escapeCsv(r.designation || 'N/A'),
+          escapeCsv(status),
+          escapeCsv(checkIn),
+          escapeCsv(checkOut),
+          escapeCsv(workHours),
+          escapeCsv(r.verification_method || 'qr_scan')
+        ];
+        csvRows.push(row.join(','));
+      }
+
+      var csvContent = '\uFEFF' + csvRows.join('\r\n');
+      var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'sentinel_daily_attendance_' + selectedDate + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Brief success flash on button
+      exportBtn.innerHTML = '<span class="material-symbols-outlined text-sm">check_circle</span> Exported!';
+      setTimeout(function() {
+        exportBtn.innerHTML = originalHTML;
+        exportBtn.disabled = false;
+      }, 2000);
+    } catch (e) {
+      console.error('[Export] Failed to generate CSV:', e);
+      alert('Export failed: ' + e.message);
+      exportBtn.innerHTML = originalHTML;
+      exportBtn.disabled = false;
+    }
   }
 
   // Event listeners

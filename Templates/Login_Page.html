@@ -300,9 +300,7 @@
     <button id="totp-submit-btn" type="button" class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm font-label-md text-label-md text-white bg-[#0F172A] hover:bg-[#1E293B] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary transition-colors duration-200">
       Verify & Sign In
     </button>
-    <button id="totp-skip-btn" type="button" class="w-full mt-2 flex justify-center py-2 px-4 border border-border rounded-md font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors">
-      Skip Authenticator (Testing Mode)
-    </button>
+
   </div>
 </div>
 
@@ -410,14 +408,6 @@
   totpSubmitBtn.addEventListener('click', verifyTotp);
   totpCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') verifyTotp(); });
 
-  const totpSkipBtn = document.getElementById('totp-skip-btn');
-  if (totpSkipBtn) {
-    totpSkipBtn.addEventListener('click', async () => {
-      totpCodeInput.value = '000000';
-      await verifyTotp();
-    });
-  }
-
   // ── TOTP setup (first time) ──
   async function showTotpSetup() {
     totpTitle.textContent = 'Set Up Two-Factor Authentication';
@@ -478,7 +468,7 @@
       const res = await fetch(API_BASE + '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, disableTotp: true })
+        body: JSON.stringify({ email, password })
       });
       const data = await res.json();
 
