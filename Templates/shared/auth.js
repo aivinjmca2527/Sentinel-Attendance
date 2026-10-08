@@ -1,6 +1,6 @@
 /**
  * Shared auth helpers — used by all dashboard pages.
- * Extracted from the duplicated inline implementations.
+ * Works seamlessly with httpOnly cookies (and Bearer tokens as backward-compatibility fallback).
  */
 function authHeaders(extra) {
   var token = localStorage.getItem('token');
@@ -13,16 +13,12 @@ function authHeaders(extra) {
 function clearAuthAndRedirect() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  if (window.location.pathname.indexOf('Login_Page.html') === -1) {
-    window.location.href = '/Templates/Login_Page.html';
-  }
+  fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(function () {
+    if (window.location.pathname.indexOf('Login_Page.html') === -1) {
+      window.location.href = '/Templates/Login_Page.html';
+    }
+  });
 }
-
-window.addEventListener('pageshow', function(event) {
-  if (!localStorage.getItem('token') && window.location.pathname.indexOf('Login_Page.html') === -1) {
-    clearAuthAndRedirect();
-  }
-});
 
 function handle401(res) {
   if (res.status === 401) {
@@ -33,15 +29,20 @@ function handle401(res) {
 }
 
 /**
- * Validate token server-side. Returns true if valid, false otherwise.
- * On failure, clears localStorage so login page won't bounce back.
+ * Validate token server-side via httpOnly cookie or Bearer header.
+ * Returns true if valid, false otherwise.
+ * On failure, clears auth session and redirects to login.
  */
 async function validateTokenOrRedirect() {
-  var token = localStorage.getItem('token');
-  if (!token) { clearAuthAndRedirect(); return false; }
   try {
-    var res = await fetch('/api/auth/me', { headers: authHeaders() });
-    if (!res.ok) { clearAuthAndRedirect(); return false; }
+    var res = await fetch('/api/auth/me', {
+      headers: authHeaders(),
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      clearAuthAndRedirect();
+      return false;
+    }
     return true;
   } catch (e) {
     clearAuthAndRedirect();

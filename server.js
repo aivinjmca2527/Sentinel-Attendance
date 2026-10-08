@@ -8,6 +8,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const rateLimit = require("express-rate-limit");
+const cookieParser = require("cookie-parser");
 
 const PORT = process.env.PORT || 3000;
 
@@ -37,11 +38,13 @@ app.set('trust proxy', 1);
 
 app.use(cors({
   origin: (origin, cb) => cb(null, true),
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
 app.use(express.json());
+app.use(cookieParser());
 
 // Serve static frontend files (login, employees, dashboard, TOTP pages, etc.)
 app.use(express.static(path.join(__dirname)));

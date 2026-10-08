@@ -34,9 +34,11 @@
       if (signOutLink) {
         signOutLink.addEventListener('click', function (e) {
           e.preventDefault();
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          window.location.href = '/Templates/Login_Page.html';
+          fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(function () {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/Templates/Login_Page.html';
+          });
         });
       }
     })

@@ -74,6 +74,15 @@ exports.login = async (req, res) => {
     }
 
     const token = makeJWT(user, false);
+
+    // Set httpOnly cookie for 8 hours
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 8 * 60 * 60 * 1000, // 8 hours
+    });
+
     res.json({
       token,
       user: { name: user.name, email: user.email, role: user.role },
@@ -146,6 +155,14 @@ exports.totpVerify = async (req, res) => {
 
     const token = makeJWT(user, false);
 
+    // Set httpOnly cookie for 8 hours
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 8 * 60 * 60 * 1000, // 8 hours
+    });
+
     res.json({
       token,
       user: { name: user.name, email: user.email, role: user.role },
@@ -189,5 +206,10 @@ exports.me = async (req, res) => {
 // ─── POST /api/auth/logout ───────────────────────────────────────────────────
 
 exports.logout = (_req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  });
   res.json({ message: "Logged out successfully." });
 };

@@ -387,6 +387,7 @@
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + tempToken
         },
+        credentials: 'include',
         body: JSON.stringify({ code })
       });
       const data = await res.json();
@@ -423,7 +424,8 @@
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + tempToken
-        }
+        },
+        credentials: 'include'
       });
       const data = await res.json();
       if (!res.ok) {
@@ -468,6 +470,7 @@
       const res = await fetch(API_BASE + '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
@@ -503,29 +506,28 @@
     }
   });
 
-  // If already logged in, validate token server-side before redirecting
+  // If already logged in, validate session server-side before redirecting
   (async function () {
-    const existingToken = localStorage.getItem('token');
-    const existingUser = localStorage.getItem('user');
-    if (existingToken && existingUser) {
-      try {
-        const res = await fetch(API_BASE + '/api/auth/me', {
-          headers: { 'Authorization': 'Bearer ' + existingToken }
-        });
-        if (res.ok) {
-          const u = JSON.parse(existingUser);
-          const role = (u.role || '').toLowerCase();
-          if (['admin', 'super admin', 'manager'].includes(role)) {
-            window.location.href = '/Templates/Admin_Dashboard_Page.html';
-          }
-        } else {
-          // Token is invalid/expired — clear it so we don't loop
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+    try {
+      const res = await fetch(API_BASE + '/api/auth/me', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(localStorage.getItem('token') ? { 'Authorization': 'Bearer ' + localStorage.getItem('token') } : {})
+        },
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const user = await res.json();
+        const role = (user.role || '').toLowerCase();
+        if (['admin', 'super admin', 'manager'].includes(role)) {
+          window.location.href = '/Templates/Admin_Dashboard_Page.html';
         }
-      } catch (_) {
-        // Network error — stay on login, don't redirect
+      } else {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
       }
+    } catch (_) {
+      // Network error — stay on login, don't redirect
     }
   })();
 })();
