@@ -690,6 +690,11 @@
     let qrPollIntervalTimer = null;
     let scansPollIntervalTimer = null;
 
+    // Clear any stale legacy kiosk entries stored in localStorage.
+    // Old entries may have had hardcoded/wrong department IDs. Kiosks are now
+    // rebuilt exclusively from live DB departments via syncKiosksWithDepartments().
+    localStorage.removeItem('sentinel_kiosks_v2');
+
     // DOM Elements
     const qrImage          = document.getElementById('qr-code-image');
     const qrExpiryText     = document.getElementById('qr-expiry-text');
@@ -746,7 +751,7 @@
     let currentMapLng = 76.560372;
     let currentMapRadius = 200;
 
-    const KIOSK_SECRET_KEY = 'sentinel-kiosk-display-key-test-2026';
+    let KIOSK_SECRET_KEY = null; // loaded from server via /api/qr/kiosk-key
     let currentExpiresAt = null;
     let countdownTimer   = null;
     let rawScansData     = [];
@@ -755,6 +760,15 @@
 
     async function loadDepartments() {
       try {
+        // Fetch kiosk display key from server (admin-only endpoint)
+        const keyRes = await fetch(`${API_BASE}/api/qr/kiosk-key`, { headers: authHeaders() });
+        if (keyRes.ok) {
+          const keyData = await keyRes.json();
+          if (keyData.kiosk_key) KIOSK_SECRET_KEY = keyData.kiosk_key;
+        } else {
+          console.warn('[KioskKey] Could not fetch kiosk key from server. Status:', keyRes.status);
+        }
+
         const res = await fetch(`${API_BASE}/api/departments`, { headers: authHeaders() });
         if (res.ok) {
           departmentsList = await res.json();
@@ -770,31 +784,27 @@
 
     function syncKiosksWithDepartments() {
       if (!Array.isArray(departmentsList) || departmentsList.length === 0) return;
-      let updated = false;
-      departmentsList.forEach(dept => {
+
+      // Rebuild kiosks fully from DB departments — prevents duplicates from
+      // stale localStorage entries or hardcoded defaults mixing with live data.
+      kiosks = departmentsList.map(dept => {
         const deptId = dept._id || dept.id;
         const deptName = dept.department_name || dept.name || 'Department';
-        const existing = kiosks.find(k => k.department_id === deptId);
-        if (!existing) {
-          kiosks.push({
-            id: deptId,
-            name: `${deptName} Attendance Kiosk`,
-            location: 'Department Entrance',
-            ip: 'DHCP / Auto',
-            department_id: deptId,
-            department_name: deptName,
-            status: 'Online'
-          });
-          updated = true;
-        } else if (existing.department_name !== deptName) {
-          existing.department_name = deptName;
-          updated = true;
-        }
+        // Preserve any custom name/location/ip from a previously-stored entry
+        const existing = (JSON.parse(localStorage.getItem('sentinel_kiosks_v2') || '[]'))
+          .find(k => k.department_id === deptId);
+        return {
+          id: deptId,
+          name: (existing && existing.id === deptId) ? existing.name : `${deptName} Attendance Kiosk`,
+          location: existing?.location || 'Department Entrance',
+          ip: existing?.ip || 'DHCP / Auto',
+          department_id: deptId,
+          department_name: deptName,
+          status: 'Online'
+        };
       });
 
-      if (updated) {
-        localStorage.setItem('sentinel_kiosks_v2', JSON.stringify(kiosks));
-      }
+      localStorage.setItem('sentinel_kiosks_v2', JSON.stringify(kiosks));
       renderKiosks();
     }
 
@@ -878,6 +888,10 @@
           showToast('No department selected.', 'warning');
           return;
         }
+        if (!KIOSK_SECRET_KEY) {
+          showToast('Kiosk key not yet loaded from server. Please wait a moment and try again.', 'warning');
+          return;
+        }
         const kioskUrl = `${API_BASE}/Templates/QR_Generation_Page.html?department_id=${encodeURIComponent(currentAdminDeptId)}&kiosk_key=${encodeURIComponent(KIOSK_SECRET_KEY)}`;
         navigator.clipboard.writeText(kioskUrl).then(() => {
           showToast('Kiosk Display URL copied to clipboard!');
@@ -905,30 +919,9 @@
       return currentAdminDeptId;
     }
 
-    // Default registered kiosks with real department IDs
-    let kiosks = JSON.parse(localStorage.getItem('sentinel_kiosks_v2') || 'null');
-    if (!kiosks || !kiosks.length) {
-      kiosks = [
-        {
-          id: 1,
-          name: 'Main Lobby Terminal #1',
-          location: 'Ground Floor Lobby',
-          ip: '192.168.1.10',
-          department_id: '6aa0b5124d4f05d801fc7903',
-          department_name: 'Engineering',
-          status: 'Online'
-        },
-        {
-          id: 2,
-          name: 'North Gate Kiosk #2',
-          location: 'Building B - Gate 2',
-          ip: '192.168.1.11',
-          department_id: '6aa0b5124d4f05d801fc7900',
-          department_name: 'Human Resources',
-          status: 'Online'
-        }
-      ];
-    }
+    // Kiosks are loaded dynamically from /api/departments in syncKiosksWithDepartments().
+    // We start with an empty array — no hardcoded stale entries.
+    let kiosks = [];
 
     function renderKiosks(list) {
       if (!kiosksContainer) return;
@@ -953,7 +946,9 @@
         const activeClass = isCurrent
           ? 'border-secondary ring-1 ring-secondary/50 bg-secondary/5 shadow-sm'
           : 'border-border bg-surface-container-low hover:border-secondary/40 hover:bg-surface-variant/30';
-        const kioskUrl = `${API_BASE}/Templates/QR_Generation_Page.html?department_id=${encodeURIComponent(k.department_id || currentAdminDeptId)}&kiosk_key=${encodeURIComponent(KIOSK_SECRET_KEY)}`;
+        const kioskUrl = KIOSK_SECRET_KEY
+          ? `${API_BASE}/Templates/QR_Generation_Page.html?department_id=${encodeURIComponent(k.department_id || currentAdminDeptId)}&kiosk_key=${encodeURIComponent(KIOSK_SECRET_KEY)}`
+          : null;
 
         return `
           <div class="kiosk-item flex items-center justify-between p-sm rounded-lg border ${activeClass} transition-all cursor-pointer group" data-dept-id="${k.department_id || ''}">
@@ -968,10 +963,10 @@
               </div>
             </div>
             <div class="flex items-center gap-1 flex-shrink-0">
-              <button type="button" class="btn-kiosk-copy p-1.5 hover:bg-surface-variant rounded-md text-on-surface-variant hover:text-secondary transition-colors cursor-pointer" data-url="${kioskUrl}" data-name="${k.name}" title="Copy Kiosk Display URL">
+              <button type="button" class="btn-kiosk-copy p-1.5 hover:bg-surface-variant rounded-md text-on-surface-variant hover:text-secondary transition-colors cursor-pointer ${!kioskUrl ? 'opacity-40 cursor-not-allowed' : ''}" data-url="${kioskUrl || ''}" data-name="${k.name}" title="${kioskUrl ? 'Copy Kiosk Display URL' : 'Kiosk key loading...'}" ${!kioskUrl ? 'disabled' : ''}>
                 <span class="material-symbols-outlined text-[16px]">content_copy</span>
               </button>
-              <button type="button" class="btn-kiosk-launch p-1.5 hover:bg-secondary/15 rounded-md text-secondary transition-colors cursor-pointer" data-url="${kioskUrl}" title="Launch Kiosk Fullscreen Display Mode">
+              <button type="button" class="btn-kiosk-launch p-1.5 hover:bg-secondary/15 rounded-md text-secondary transition-colors cursor-pointer ${!kioskUrl ? 'opacity-40 cursor-not-allowed' : ''}" data-url="${kioskUrl || ''}" title="${kioskUrl ? 'Launch Kiosk Fullscreen Display Mode' : 'Kiosk key loading...'}" ${!kioskUrl ? 'disabled' : ''}>
                 <span class="material-symbols-outlined text-[16px]">open_in_new</span>
               </button>
             </div>
@@ -995,6 +990,7 @@
           e.stopPropagation();
           const url = btn.getAttribute('data-url');
           const name = btn.getAttribute('data-name');
+          if (!url) { showToast('Kiosk key not yet loaded. Please wait.', 'warning'); return; }
           navigator.clipboard.writeText(url).then(() => {
             showToast(`Copied Kiosk URL for "${name}" to clipboard!`);
           }).catch(() => {
@@ -1007,6 +1003,7 @@
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const url = btn.getAttribute('data-url');
+          if (!url) { showToast('Kiosk key not yet loaded. Please wait.', 'warning'); return; }
           window.open(url, '_blank');
         });
       });

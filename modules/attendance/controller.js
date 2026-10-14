@@ -36,24 +36,50 @@ const STANDARD_WORK_HOURS = parseFloat(process.env.STANDARD_WORK_HOURS) || 8;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Return { todayStart, todayEnd } for the current calendar day (UTC). */
-function getTodayRange() {
-  const now = new Date();
-  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
-  return { todayStart, todayEnd };
+/** Resolves the organization/server timezone. Defaults to Asia/Kolkata or system timezone. */
+function getTimeZone() {
+  return process.env.TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
 }
 
 /**
- * Determine check-in status based on employee's shift_start (or global fallback).
+ * Return { todayStart, todayEnd, todayStr } for the current calendar day in the company timezone.
+ * todayStart is normalized to UTC midnight of the current local calendar date (YYYY-MM-DD).
+ */
+function getTodayRange(timeZone = getTimeZone()) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const todayStr = formatter.format(new Date()); // "YYYY-MM-DD"
+  const [y, m, d] = todayStr.split('-').map(Number);
+  const todayStart = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+  const todayEnd = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+  return { todayStart, todayEnd, todayStr };
+}
+
+/**
+ * Determine check-in status based on employee's shift_start (or global fallback),
+ * evaluated in the company timezone.
  * @param {Date} checkInTime
  * @param {string|null} empShiftStart - "HH:MM" or null
+ * @param {string} [timeZone]
  */
-function getCheckinStatus(checkInTime, empShiftStart) {
+function getCheckinStatus(checkInTime, empShiftStart, timeZone = getTimeZone()) {
   const cutoff = empShiftStart || CHECK_IN_CUTOFF;
   const [cutH, cutM] = cutoff.split(':').map(Number);
-  const h = checkInTime.getUTCHours();
-  const m = checkInTime.getUTCMinutes();
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  }).formatToParts(checkInTime);
+
+  const h = Number(parts.find(p => p.type === 'hour')?.value || 0) % 24;
+  const m = Number(parts.find(p => p.type === 'minute')?.value || 0);
+
   return (h < cutH || (h === cutH && m <= cutM)) ? 'on-time' : 'late';
 }
 
@@ -132,11 +158,69 @@ async function checkin(req, res) {
 
     // Load employee's personal shift settings
     const empDoc = await Employee.findById(employee_id).lean();
-    const empShiftStart = empDoc?.shift_start || null;
-    const status = getCheckinStatus(now, empShiftStart);
 
     // Determine verification method based on whether location was provided
     const hasLocation = ctx.latitude != null && ctx.longitude != null;
+
+    // ── Toggle Check-Out if employee already had an active check-in today ──────
+    if (ctx.existingRecord) {
+      const record = await Attendance.findById(ctx.existingRecord._id);
+      record.check_out_time = now;
+      record.check_out_qr_session_id = ctx.qrSession._id;
+      record.check_out_latitude = ctx.latitude;
+      record.check_out_longitude = ctx.longitude;
+
+      if (hasLocation && record.verification_method === 'qr_only') {
+        record.verification_method = 'qr_geo';
+      }
+
+      const empShiftStart = empDoc?.shift_start || null;
+      const empMinWorkHours = empDoc?.min_work_hours != null ? empDoc.min_work_hours : null;
+
+      record.working_hours = computeWorkingHours(record.check_in_time, now);
+      record.status = getCheckoutStatus(
+        record.working_hours,
+        getCheckinStatus(record.check_in_time, empShiftStart),
+        empMinWorkHours
+      );
+
+      await record.save();
+
+      // Fire early_leave security alert if employee left before minimum hours
+      if (record.status === 'early-leave') {
+        try {
+          const minH = empMinWorkHours != null ? empMinWorkHours : STANDARD_WORK_HOURS;
+          await SecurityAlert.create({
+            employee_id,
+            alert_type: 'early_leave',
+            severity: 'low',
+            message: `Early leave detected. Expected ${minH}h, worked ${record.working_hours}h. Checked out at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}.`,
+            metadata: {
+              department_id: empDoc?.department_id || null,
+              working_hours: record.working_hours,
+              required_hours: minH,
+            },
+          });
+        } catch (alertErr) {
+          console.error('[checkin->checkout] Failed to create early_leave alert:', alertErr.message);
+        }
+      }
+
+      return res.status(200).json({
+        message: 'Check-out successful.',
+        attendance_id: record._id,
+        check_in_time: record.check_in_time,
+        check_out_time: record.check_out_time,
+        working_hours: record.working_hours,
+        status: record.status,
+        verification_method: record.verification_method,
+        action: 'checkout',
+      });
+    }
+
+    // ── Otherwise: Normal Check-In ──────────────────────────────────────────
+    const empShiftStart = empDoc?.shift_start || null;
+    const status = getCheckinStatus(now, empShiftStart);
     const verification_method = hasLocation ? 'qr_geo' : 'qr_only';
 
     // Create today's attendance record
@@ -174,6 +258,7 @@ async function checkin(req, res) {
       check_in_time: record.check_in_time,
       status: record.status,
       verification_method: record.verification_method,
+      action: 'checkin',
     });
   } catch (err) {
     const status = err.status || 500;
@@ -266,9 +351,12 @@ async function checkout(req, res) {
     return res.status(200).json({
       message: 'Check-out successful.',
       attendance_id: record._id,
+      check_in_time: record.check_in_time,
       check_out_time: record.check_out_time,
       working_hours: record.working_hours,
       status: record.status,
+      verification_method: record.verification_method,
+      action: 'checkout',
     });
   } catch (err) {
     const status = err.status || 500;
@@ -337,9 +425,16 @@ async function getAttendanceRecords(req, res) {
 
     if (date) {
       // Single day query
-      const d = new Date(date);
-      const dayStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+      let dayStart, dayEnd;
+      if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+        const [y, m, d] = date.trim().split('-').map(Number);
+        dayStart = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+        dayEnd = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+      } else {
+        const d = new Date(date);
+        dayStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+        dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+      }
       filter.date = { $gte: dayStart, $lte: dayEnd };
     } else if (start_date || end_date) {
       // Date range query
@@ -391,4 +486,7 @@ module.exports = {
   checkin,
   checkout,
   getAttendanceRecords,
+  getTodayRange,
+  getCheckinStatus,
+  getTimeZone,
 };

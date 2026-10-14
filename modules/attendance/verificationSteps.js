@@ -170,26 +170,49 @@ async function verifyDepartmentMatch(ctx) {
  *
  * Throws 409 on duplicate.
  */
+/**
+ * Step 3: Verify no duplicate scan (check-in).
+ * Ensures the employee does not already have a completed attendance record for today.
+ * If employee has an active check-in with check_out_time still null:
+ * attaches ctx.existingRecord to allow checkin to perform checkout toggle.
+ * If already checked out today, throws 409 Conflict.
+ */
 async function verifyNoDuplicateCheckin(ctx) {
   const { employee_id, todayStart, todayEnd } = ctx;
 
-  const existing = await Attendance.findOne({
+  let existing = await Attendance.findOne({
     employee_id,
     date: { $gte: todayStart, $lte: todayEnd },
     check_in_time: { $ne: null },
-  }).lean();
+  });
+
+  // Fallback for night shift: look for an open check-in from previous calendar day
+  if (!existing) {
+    const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+    existing = await Attendance.findOne({
+      employee_id,
+      date: { $gte: yesterdayStart, $lt: todayStart },
+      check_in_time: { $ne: null },
+      check_out_time: null,
+    });
+  }
 
   if (existing) {
-    SecurityAlert.create({
-      employee_id,
-      alert_type: 'duplicate_scan',
-      severity: 'high',
-      message: 'Employee attempted to check in again after already scanning today.',
-      metadata: { qr_session_id: ctx.qrSession?._id },
-    }).catch(e => console.error('[ALERT] duplicate_scan write failed:', e.message));
-    const err = new Error('Employee has already checked in today.');
-    err.status = 409;
-    throw err;
+    if (existing.check_out_time) {
+      SecurityAlert.create({
+        employee_id,
+        alert_type: 'duplicate_scan',
+        severity: 'high',
+        message: 'Employee attempted to check in again after already checking out today.',
+        metadata: { qr_session_id: ctx.qrSession?._id },
+      }).catch(e => console.error('[ALERT] duplicate_scan write failed:', e.message));
+      const err = new Error('Employee has already checked out today.');
+      err.status = 409;
+      throw err;
+    }
+
+    // Active check-in with no checkout yet: attach for checkout toggle
+    ctx.existingRecord = existing;
   }
 }
 
@@ -203,10 +226,24 @@ async function verifyNoDuplicateCheckin(ctx) {
 async function verifyCheckoutPreconditions(ctx) {
   const { employee_id, todayStart, todayEnd } = ctx;
 
-  const record = await Attendance.findOne({
+  let record = await Attendance.findOne({
     employee_id,
     date: { $gte: todayStart, $lte: todayEnd },
   });
+
+  // Fallback for night shift: look for an open check-in from previous calendar day
+  if (!record || !record.check_in_time) {
+    const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+    const nightRecord = await Attendance.findOne({
+      employee_id,
+      date: { $gte: yesterdayStart, $lt: todayStart },
+      check_in_time: { $ne: null },
+      check_out_time: null,
+    });
+    if (nightRecord) {
+      record = nightRecord;
+    }
+  }
 
   if (!record || !record.check_in_time) {
     const err = new Error('No check-in record found for today. Cannot check out.');

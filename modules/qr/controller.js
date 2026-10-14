@@ -121,6 +121,30 @@ async function regenerateKeys(req, res) {
 }
 
 /**
+ * GET /api/qr/kiosk-key
+ * Protected (admin only). Returns the KIOSK_DISPLAY_KEY so the admin frontend
+ * can construct kiosk URLs without hardcoding the secret.
+ */
+async function getKioskKey(req, res) {
+  try {
+    const role = (req.user?.role || '').toLowerCase();
+    if (role !== 'admin' && role !== 'manager') {
+      return res.status(403).json({ error: 'Access denied. Admin or manager role required.' });
+    }
+    const key = process.env.KIOSK_DISPLAY_KEY;
+    if (!key || key.includes('replace-with')) {
+      return res.status(503).json({
+        error: 'KIOSK_DISPLAY_KEY is not configured on the server. Set it in your .env file.',
+      });
+    }
+    return res.json({ kiosk_key: key });
+  } catch (err) {
+    console.error('[QR Controller] getKioskKey error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve kiosk key.' });
+  }
+}
+
+/**
  * GET /api/qr/settings
  */
 async function getSettings(req, res) {
@@ -198,6 +222,7 @@ async function getKioskQR(req, res) {
 module.exports = {
   getCurrentQR,
   getKioskQR,
+  getKioskKey,
   getRecentScans,
   regenerateKeys,
   getSettings,

@@ -34,6 +34,9 @@ router.get('/recent-scans', requireAuth, qrController.getRecentScans);
 // POST /api/qr/regenerate-keys — force regenerate security keys
 router.post('/regenerate-keys', requireAuth, qrController.regenerateKeys);
 
+// GET /api/qr/kiosk-key — returns KIOSK_DISPLAY_KEY for admin/manager to build kiosk URLs
+router.get('/kiosk-key', requireAuth, qrController.getKioskKey);
+
 // GET /api/qr/settings & POST /api/qr/settings — get and update security settings
 router.get('/settings', requireAuth, qrController.getSettings);
 router.post('/settings', requireAuth, qrController.updateSettings);
