@@ -176,9 +176,13 @@
 <!-- Log Table Area -->
 <div class="bg-surface border border-border rounded-xl shadow-[0_2px_4px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col">
 <!-- Table Toolbar -->
-<div class="p-md border-b border-border flex justify-between items-center bg-surface-container-lowest">
+<div class="p-md border-b border-border flex justify-between items-center bg-surface-container-lowest gap-sm flex-wrap">
 <h3 class="font-headline-sm text-headline-sm text-primary">Attendance Log</h3>
-<div class="flex gap-sm">
+<div class="flex gap-sm items-center flex-wrap">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-sm">search</span>
+<input id="attendance-search-input" type="text" placeholder="Search employee, ID, dept..." class="bg-surface border border-border rounded pl-8 pr-3 py-1.5 font-body-sm text-body-sm focus:outline-none focus:border-secondary w-56">
+</div>
 <div class="relative">
 <select id="attendance-dept-filter" class="appearance-none bg-surface border border-border rounded px-3 py-1.5 pr-8 font-body-sm text-body-sm focus:outline-none focus:border-secondary">
 <option value="">All Departments</option>
@@ -268,9 +272,35 @@
   var allRecords = [];
   var totalWorkforce = 0;
 
+  // Fetch departments dynamically to ensure dropdown matches database
+  function fetchDepartments() {
+    if (!deptFilter) return;
+    fetch(API_BASE + '/api/departments', { headers: authHeaders(), credentials: 'include' })
+      .then(function(res) {
+        if (!res.ok) return [];
+        return res.json();
+      })
+      .then(function(depts) {
+        if (!Array.isArray(depts) || depts.length === 0) return;
+        var current = deptFilter.value;
+        var html = '<option value="">All Departments</option>';
+        for (var i = 0; i < depts.length; i++) {
+          var name = depts[i].department_name || depts[i].name || '';
+          if (name) {
+            html += '<option value="' + name + '">' + name + '</option>';
+          }
+        }
+        deptFilter.innerHTML = html;
+        if (current) deptFilter.value = current;
+      })
+      .catch(function(err) {
+        console.warn('[Departments] Fetch error:', err.message);
+      });
+  }
+
   // Fetch total workforce count (once on load)
   function fetchWorkforceCount() {
-    fetch(API_BASE + '/api/employees', { headers: authHeaders() })
+    fetch(API_BASE + '/api/employees', { headers: authHeaders(), credentials: 'include' })
       .then(function(res) {
         if (res.status === 401) { clearAuthAndRedirect(); return; }
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -307,11 +337,11 @@
   }
 
   function fetchAttendance() {
-    var dateVal = datePicker.value;
+    var dateVal = datePicker ? datePicker.value : '';
     var url = dateVal
       ? API_BASE + '/api/attendance?date=' + dateVal
       : API_BASE + '/api/attendance';
-    fetch(url, { headers: authHeaders() })
+    fetch(url, { headers: authHeaders(), credentials: 'include' })
       .then(function(res) {
         if (res.status === 401) { clearAuthAndRedirect(); return; }
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -326,7 +356,9 @@
       })
       .catch(function(err) {
         console.error('[Attendance] Fetch error:', err.message);
-        tbody.innerHTML = '<tr><td colspan="7" class="px-md py-3 text-center text-error">Failed to load attendance records</td></tr>';
+        if (tbody) {
+          tbody.innerHTML = '<tr><td colspan="7" class="px-md py-3 text-center text-error">Failed to load attendance records</td></tr>';
+        }
         if (paginationControls) paginationControls.innerHTML = '';
         if (paginationInfo) paginationInfo.textContent = 'Showing 0 entries';
       });
@@ -339,9 +371,9 @@
   }
 
   function getFilteredRecords() {
-    var searchTerm = (searchInput.value || '').toLowerCase().trim();
-    var deptVal = (deptFilter.value || '').toLowerCase();
-    var statusVal = statusFilter.value || '';
+    var searchTerm = (searchInput ? searchInput.value || '' : '').toLowerCase().trim();
+    var deptVal = (deptFilter ? deptFilter.value || '' : '').toLowerCase();
+    var statusVal = (statusFilter ? statusFilter.value || '' : '');
 
     return allRecords.filter(function(r) {
       if (searchTerm) {
@@ -472,7 +504,7 @@
 
   function renderTable() {
     var filtered = getFilteredRecords();
-    var searchTerm = (searchInput.value || '').toLowerCase().trim();
+    var searchTerm = (searchInput ? searchInput.value || '' : '').toLowerCase().trim();
     var totalItems = filtered.length;
 
     var totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
@@ -482,15 +514,19 @@
     renderPagination(totalItems);
 
     if (totalItems === 0) {
-      paginationInfo.textContent = 'Showing 0 entries';
-      var emptyMsg = searchTerm ? 'No records matching "' + searchInput.value.trim() + '"' : 'No records found';
-      tbody.innerHTML = '<tr><td colspan="7" class="px-md py-6 text-center text-on-surface-variant font-medium">' + emptyMsg + '</td></tr>';
+      if (paginationInfo) paginationInfo.textContent = 'Showing 0 entries';
+      var emptyMsg = searchTerm ? 'No records matching "' + (searchInput ? searchInput.value.trim() : '') + '"' : 'No records found';
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-md py-6 text-center text-on-surface-variant font-medium">' + emptyMsg + '</td></tr>';
+      }
       return;
     }
 
     var startIdx = (currentPage - 1) * PAGE_SIZE;
     var endIdx = Math.min(startIdx + PAGE_SIZE, totalItems);
-    paginationInfo.textContent = 'Showing ' + (startIdx + 1) + '–' + endIdx + ' of ' + totalItems + ' entries';
+    if (paginationInfo) {
+      paginationInfo.textContent = 'Showing ' + (startIdx + 1) + '–' + endIdx + ' of ' + totalItems + ' entries';
+    }
 
     var pageSlice = filtered.slice(startIdx, endIdx);
     var html = '';
@@ -502,7 +538,7 @@
       for (var w = 0; w < words.length && w < 2; w++) { initials += words[w][0]; }
       initials = initials.toUpperCase();
       var empId = r.employee_id ? String(r.employee_id).slice(-4).toUpperCase() : '----';
-      var dept = r.designation || 'N/A';
+      var dept = r.department_name || r.designation || 'N/A';
       var checkIn = r.check_in_time
         ? new Date(r.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : '--:--';
@@ -645,27 +681,39 @@
   }
 
   // Event listeners
-  datePicker.addEventListener('change', function() {
-    currentPage = 1;
-    var d = new Date(datePicker.value + 'T00:00:00');
-    dateDisplay.textContent = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    fetchAttendance();
-  });
-  searchInput.addEventListener('input', function() {
-    currentPage = 1;
-    renderTable();
-  });
-  deptFilter.addEventListener('change', function() {
-    currentPage = 1;
-    renderTable();
-  });
-  statusFilter.addEventListener('change', function() {
-    currentPage = 1;
-    renderTable();
-  });
-  refreshBtn.addEventListener('click', function() {
-    fetchAttendance();
-  });
+  if (datePicker) {
+    datePicker.addEventListener('change', function() {
+      currentPage = 1;
+      var d = new Date(datePicker.value + 'T00:00:00');
+      if (dateDisplay) {
+        dateDisplay.textContent = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      }
+      fetchAttendance();
+    });
+  }
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      currentPage = 1;
+      renderTable();
+    });
+  }
+  if (deptFilter) {
+    deptFilter.addEventListener('change', function() {
+      currentPage = 1;
+      renderTable();
+    });
+  }
+  if (statusFilter) {
+    statusFilter.addEventListener('change', function() {
+      currentPage = 1;
+      renderTable();
+    });
+  }
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', function() {
+      fetchAttendance();
+    });
+  }
   if (exportBtn) {
     exportBtn.addEventListener('click', exportDailyAttendanceCsv);
   }
@@ -676,6 +724,7 @@
   if (initialSearch && searchInput) {
     searchInput.value = initialSearch;
   }
+  fetchDepartments();
   fetchWorkforceCount();
   fetchAttendance();
 })();
